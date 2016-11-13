@@ -168,9 +168,6 @@ impl TreeArena {
 		self.arena.push( Node { token: token, left: Some(left), right: Some(right) } );
 		self.arena.len() - 1
 	}
-	fn set_left(&mut self, left: usize, right: usize) {
-		self.arena[right].left = Some(left);
-	}
 }
 
 
@@ -393,7 +390,7 @@ fn parse_factor(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 
 // { * F }*
 // { / F }*
-fn parse_term_right(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
+fn parse_term_right(tg: &mut TokenGetter, arena: &mut TreeArena, left: usize) -> ParseResult {
 	let op = match tg.peek() {
 		Some(op) => op,
 		None => { return ParseResult::None; }
@@ -411,9 +408,20 @@ fn parse_term_right(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult 
 		ParseResult::None => ParseResult::Fail("parse_term_right: missing factor".into()),
 		ParseResult::Fail(err) => ParseResult::Fail(err),
 		ParseResult::Some(right) => {
-			let op2 = (*op).clone();
-			let node_id = arena.push_dual(op2, 0usize, right);
-			ParseResult::Some(node_id)
+			let right2_pr = match parse_term_right(tg, arena, right) {
+				ParseResult::None => ParseResult::Some(right),
+				ParseResult::Fail(err) => ParseResult::Fail(err),
+				ParseResult::Some(right2) => ParseResult::Some(right2)
+			};
+
+			if let ParseResult::Some(right2) = right2_pr {
+				let op2 = (*op).clone();
+				let node_id = arena.push_dual(op2, left, right2);
+				ParseResult::Some(node_id)
+			}
+			else {
+				right2_pr
+			}
 		}
 	}
 }
@@ -427,11 +435,10 @@ fn parse_term(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 		ParseResult::Fail(err) => ParseResult::Fail(err),
 		ParseResult::Some(left) =>  {
 			// { * F }
-			match parse_term_right(tg, arena) {
+			match parse_term_right(tg, arena, left) {
 				ParseResult::None => ParseResult::Some(left),
 				ParseResult::Fail(err) => ParseResult::Fail(err),
 				ParseResult::Some(right) =>  {
-					arena.set_left(left, right);
 					ParseResult::Some(right)
 				}
 			}
@@ -532,8 +539,14 @@ fn eval_input(input: &str) -> String {
 	}
 }
 
+#[test]
+fn test_eval() {
+	assert_eq!("20", eval_input("8/2 + 1 + 3*5"));
+	assert_eq!("24", eval_input("2*3*4"));
+}
+
 fn main() {
-	println!("= {}", eval_input("8/2 + 1 + 3*5"));
+	println!("= {}", eval_input("2 *3 *4"));
 	/*
 	if gtk::init().is_err() {
 		println!("Failed to initialize GTK.");
