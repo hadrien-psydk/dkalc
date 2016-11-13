@@ -8,6 +8,12 @@ struct NumVal {
 	val: i32
 }
 
+impl NumVal {
+	fn to_string(&self) -> String {
+		format!("n:{}", self.val)
+	}
+}
+
 #[allow(dead_code)]
 #[derive(Copy,Clone)]
 enum Token {
@@ -27,7 +33,7 @@ impl Token {
 	fn to_string(&self) -> std::borrow::Cow<'static, str> {
 		match *self {
 			Token::Nothing => "_".into(),
-			Token::Number(ref nv) => format!("n:{}", nv.val).into(),
+			Token::Number(ref nv) => nv.to_string().into(),
 			Token::ParOpen => "(".into(),
 			Token::ParClose => ")".into(),
 			Token::Add => "+".into(),
@@ -288,6 +294,12 @@ impl Tree {
 		self.draw_node(self.root, pad, &mut canvas);
 		canvas.to_string()
 	}
+
+	fn eval(&self) -> NumVal {
+		let mut val = 0;
+		//eval_node(self.root)
+		NumVal { val: val }
+	}
 }
 
 struct TokenGetter<'a> {
@@ -405,7 +417,7 @@ fn parse_term(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 
 // { - T }*
 // { + T }*
-fn parse_expression_right(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
+fn parse_expression_right(tg: &mut TokenGetter, arena: &mut TreeArena, mut left: usize) -> ParseResult {
 	let op = match tg.peek() {
 		Some(op) => op,
 		None => { return ParseResult::None; }
@@ -425,9 +437,20 @@ fn parse_expression_right(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseR
 		ParseResult::None => ParseResult::Fail("parse_expression_right: missing term".into()),
 		ParseResult::Fail(err) => ParseResult::Fail(err),
 		ParseResult::Some(right) => {
-			let op2 = (*op).clone();
-			let node_id = arena.push_dual(op2, 0usize, right);
-			return ParseResult::Some(node_id);
+			let right2_pr = match parse_expression_right(tg, arena, right) {
+				ParseResult::None => ParseResult::Some(right),
+				ParseResult::Fail(err) => ParseResult::Fail(err),
+				ParseResult::Some(right2) => ParseResult::Some(right2)
+			};
+
+			if let ParseResult::Some(right2) = right2_pr {
+				let op2 = (*op).clone();
+				let node_id = arena.push_dual(op2, left, right2);
+				ParseResult::Some(node_id)
+			}
+			else {
+				right2_pr
+			}
 		}
 	}
 }
@@ -441,11 +464,10 @@ fn parse_expression(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult 
 		ParseResult::Fail(err) => ParseResult::Fail(err),
 		ParseResult::Some(left) => { 
 			// { - T }
-			match parse_expression_right(tg, arena) {
+			match parse_expression_right(tg, arena, left) {
 				ParseResult::None => ParseResult::Some(left),
 				ParseResult::Fail(err) => ParseResult::Fail(err),
 				ParseResult::Some(right) => {
-					arena.set_left(left, right);
 					ParseResult::Some(right)
 				}
 			}
@@ -477,7 +499,7 @@ fn eval_input(input: &str) -> String {
 	println!("");
 	if let Some(tree) = make_tree(tokens) {
 		println!("{}", tree.to_string());
-		String::from("42")
+		tree.eval().to_string()
 	}
 	else {
 		"<no tree>".into()
