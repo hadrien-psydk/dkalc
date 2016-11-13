@@ -1,7 +1,8 @@
 extern crate gtk;
+//extern crate gdk;
 use gtk::prelude::*;
 use gtk::{Window, WindowType, Entry, Label, Box, Orientation, Menu, MenuBar, MenuItem,
-	AboutDialog, License};
+	AboutDialog, License, CssProvider, StyleContext};
 
 #[derive(Copy,Clone)]
 struct NumVal {
@@ -248,8 +249,10 @@ impl AsciiCanvas {
 	}
 	fn do_str_fix(&mut self, s: &str) {
 		let chars = s.chars();
+		let mut i = 0;
 		for c in chars {
-			self.text[self.y][self.x] = c;
+			self.text[self.y][self.x + i] = c;
+			i += 1;
 		}
 	}
 	fn to_string(&self) -> String {
@@ -655,6 +658,19 @@ fn main() {
 
 	let entry = Entry::new();
 	gtk_box.pack_start(&entry, true, true, 0);
+
+	let css_provider = CssProvider::new();
+	let css = "label { font: monospace 15; }";
+	if let Err(err) = css_provider.load_from_data(css) {
+		println!("{}", err);
+		return;
+	}
+	StyleContext::add_provider_for_screen(
+		//&gdk::Screen::get_default().unwrap(),
+		&gtk::WidgetExt::get_screen(&window).unwrap(),
+		&css_provider,
+		800 // gtk_sys::GTK_STYLE_PROVIDER_PRIORITY_USER
+		);
 
 	window.connect_delete_event(|_, _| {
 		gtk::main_quit();
