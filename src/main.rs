@@ -1,7 +1,7 @@
 extern crate gtk;
 use gtk::prelude::*;
-use gtk::{Window, WindowType, Entry, Label, Box, Orientation, Menu, MenuBar, MenuItem};
-use std::slice;
+use gtk::{Window, WindowType, Entry, Label, Box, Orientation, Menu, MenuBar, MenuItem,
+	AboutDialog, License};
 
 #[derive(Copy,Clone)]
 struct NumVal {
@@ -570,39 +570,41 @@ fn parse_expression(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult 
 	}
 }
 
-fn make_tree(mut tokens: Vec<Token>) -> Option<Tree> {
+fn make_tree(mut tokens: Vec<Token>) -> Result<Tree, String> {
 	let mut arena = TreeArena::new_with_size(tokens.len());
 	let mut tg = TokenGetter { tokens: &mut tokens, index: 0 };
 	let root = match parse_expression(&mut tg, &mut arena) {
 		ParseResult::None => arena.push_single(Token::Nothing),
 		ParseResult::Some(root) => root,
-		ParseResult::Fail(err) => {
-			println!("make_tree error: {}", err);
-			return None;
-		}
+		ParseResult::Fail(err) => return Err(err),
 	};
 	let tree = Tree { arena: arena, root: root };
-	Some(tree)
+	Ok(tree)
 }
 
 fn eval_input(input: &str) -> String {
 	let tokens = tokenize(input);
+	/*
 	print!("{} tokens: ", tokens.len());
 	for t in &tokens {
 		print!("[{}] ", t.to_string());
 	}
 	println!("");
+	*/
 
+	/*
 	println!("tree:");
-	if let Some(tree) = make_tree(tokens) {
-		println!("{}", tree.to_string());
-		match tree.eval() {
-			Ok(nv) => nv.to_string(),
-			Err(err) => err.to_string()
-		}
-	}
-	else {
-		"<no tree>".into()
+	*/
+
+	match make_tree(tokens) {
+		Ok(tree) => {
+			println!("{}", tree.to_string());
+			match tree.eval() {
+				Ok(nv) => nv.to_string(),
+				Err(err) => err.to_string()
+			}
+		},
+		Err(err) => err.into()
 	}
 }
 
@@ -614,8 +616,8 @@ fn test_eval() {
 }
 
 fn main() {
-	println!("= {}", eval_input("3%2"));
-	/*
+	//println!("= {}", eval_input("3%2"));
+
 	if gtk::init().is_err() {
 		println!("Failed to initialize GTK.");
 		return;
@@ -625,18 +627,20 @@ fn main() {
 	window.set_title("dkalc");
 	window.set_default_size(350, 100);
 
-	let gtk_box = Box::new(Orientation::Vertical, 6);
+	let gtk_box = Box::new(Orientation::Vertical, 3);
 	window.add(&gtk_box);
 
 	let file_menu = Menu::new();
+	/*
 	let settings_menu_item = MenuItem::new_with_label("Settings");
 	file_menu.append(&settings_menu_item);
 	let help_menu_item = MenuItem::new_with_label("Help");
 	file_menu.append(&help_menu_item);
+	*/
 	let about_menu_item = MenuItem::new_with_label("About");
 	file_menu.append(&about_menu_item);
-	let quit_item = MenuItem::new_with_label("Quit");
-	file_menu.append(&quit_item);
+	let quit_menu_item = MenuItem::new_with_label("Quit");
+	file_menu.append(&quit_menu_item);
 
 	let file_menu_item = MenuItem::new_with_label("File");
 	file_menu_item.set_submenu(Some(&file_menu));
@@ -656,15 +660,34 @@ fn main() {
 		gtk::main_quit();
 		Inhibit(false)
 	});
+	window.show_all();
 
-	entry.connect_changed(|arg| {
-		if let Some(str) = arg.get_chars(0, -1) {
-			let result = eval_input(&str);
-			println!("text changed: {} = {}", str, result);
-		}
+	about_menu_item.connect_activate(move |_| {
+		let ad = AboutDialog::new();
+        ad.set_authors(&["Hadrien Nilsson"]);
+        ad.set_website_label(Some("psydk.org"));
+        ad.set_website(Some("http://psydk.org"));
+        ad.set_title("About dkalc");
+		ad.set_program_name("dkalc");
+		ad.set_version(Some("1.0-beta"));
+		ad.set_license_type(License::Gpl20);
+        ad.set_transient_for(Some(&window));
+        ad.run();
+		ad.destroy();
 	});
 
-	window.show_all();
-	gtk::main();*/
+	quit_menu_item.connect_activate(|_| {
+		gtk::main_quit();
+	});
+
+	entry.connect_changed(move |arg| {
+		if let Some(str) = arg.get_chars(0, -1) {
+			let result = eval_input(&str);
+			//println!("text changed: {} = {}", str, result);
+			label.set_label(&result);
+		}
+	});
+	
+	gtk::main();
 }
 
