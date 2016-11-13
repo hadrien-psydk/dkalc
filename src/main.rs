@@ -36,6 +36,10 @@ impl NumVal {
 	fn div(nv0: NumVal, nv1: NumVal) -> NumVal {
 		NumVal { val: nv0.val / nv1.val }
 	}
+
+	fn div_mod(nv0: NumVal, nv1: NumVal) -> NumVal {
+		NumVal { val: nv0.val % nv1.val }
+	}
 }
 
 #[allow(dead_code)]
@@ -49,6 +53,7 @@ enum Token {
 	Sub,
 	Mul,
 	Div,
+	Mod
 }
 
 
@@ -63,6 +68,7 @@ impl Token {
 			Token::Sub => "-".into(),
 			Token::Mul => "*".into(),
 			Token::Div => "/".into(),
+			Token::Mod => "%".into(),
 		}
 	}
 }
@@ -147,6 +153,10 @@ impl<'a> InputContext<'a> {
 			}
 			else if c == '/' {
 				ret = Some(Token::Div);
+				break;
+			}
+			else if c == '%' {
+				ret = Some(Token::Mod);
 				break;
 			}
 			else if c == ' ' {
@@ -358,6 +368,14 @@ impl Tree {
 					NumVal::div(val_left, val_right)
 				}
 			},
+			Token::Mod => {
+				if val_right.is_zero() {
+					return Err(EvalError::DivideByZero)
+				}
+				else {
+					NumVal::div_mod(val_left, val_right)
+				}
+			},
 		};
 		Ok(nv_result)
 	}
@@ -434,6 +452,7 @@ fn parse_factor(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 
 // { * F }*
 // { / F }*
+// { % F }*
 fn parse_term_right(tg: &mut TokenGetter, arena: &mut TreeArena, left: usize) -> ParseResult {
 	let op = match tg.peek() {
 		Some(op) => op,
@@ -441,7 +460,7 @@ fn parse_term_right(tg: &mut TokenGetter, arena: &mut TreeArena, left: usize) ->
 	};
 
 	match *op {
-		Token::Mul | Token::Div => (),
+		Token::Mul | Token::Div | Token::Mod => (),
 		_ => {
 			return ParseResult::None;
 		}
@@ -472,6 +491,7 @@ fn parse_term_right(tg: &mut TokenGetter, arena: &mut TreeArena, left: usize) ->
 
 // T -> F { * F }*
 // T -> F { / F }*
+// T -> F { % F }*
 fn parse_term(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 	// F
 	match parse_factor(tg, arena) {
@@ -590,10 +610,11 @@ fn eval_input(input: &str) -> String {
 fn test_eval() {
 	assert_eq!("20", eval_input("8/2 + 1 + 3*5"));
 	assert_eq!("24", eval_input("2*3*4"));
+	assert_eq!("2", eval_input("7%5"));
 }
 
 fn main() {
-	println!("= {}", eval_input("2/0"));
+	println!("= {}", eval_input("3%2"));
 	/*
 	if gtk::init().is_err() {
 		println!("Failed to initialize GTK.");
