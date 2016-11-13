@@ -15,6 +15,11 @@ impl NumVal {
 		self.val == 0
 	}
 
+	fn negate(&self) -> NumVal {
+		NumVal { val: -self.val }
+	}
+
+
 	fn zero() -> NumVal {
 		NumVal { val: 0 }
 	}
@@ -343,7 +348,7 @@ enum ParseResult {
 	Some(usize),
 }
 
-// F -> number
+// F -> '-'? number
 // F -> '(' X ')'
 fn parse_factor(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 	let op = match tg.next() {
@@ -352,9 +357,25 @@ fn parse_factor(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 	};
 
 	match *op {
-		Token::Number(_) => {
-			let opc = (*op).clone();
-			let node_id = arena.push_single(opc);
+		Token::Sub => {
+			// Wants number
+			let op_next = match tg.next() {
+				Some(op_next) => op_next,
+				None => { return ParseResult::Fail("parse_factor error: missing number".into()); }
+			};
+			match *op_next {
+				Token::Number(nv) => {
+					let node_id = arena.push_single(Token::Number(nv.negate()));
+					return ParseResult::Some(node_id);
+				},
+				_ => {
+					return ParseResult::Fail(format!(
+						"parse_factor error: expected number instead of {}", op_next.to_string()));
+				}
+			}
+		}
+		Token::Number(nv) => {
+			let node_id = arena.push_single(Token::Number(nv));
 			return ParseResult::Some(node_id);
 		},
 		Token::ParOpen => (),
@@ -362,6 +383,8 @@ fn parse_factor(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 			return ParseResult::Fail(format!("parse_factor error: found {}", op.to_string()));
 		}
 	}
+
+	// Parenthesis expression
 	let inside = parse_expression(tg, arena);
 	
 	// We expect the closing parenthesis
@@ -544,4 +567,5 @@ fn test_eval() {
 	assert_eq!("20", eval_input("8/2 + 1 + 3*5"));
 	assert_eq!("24", eval_input("2*3*4"));
 	assert_eq!("2", eval_input("7%5"));
+	assert_eq!("-2", eval_input("-3+1"));
 }
