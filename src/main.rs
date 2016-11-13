@@ -205,73 +205,108 @@ impl TreeArena {
 	}
 }
 
-
-const AC_WIDTH: usize = 64;
-const AC_HEIGHT: usize = 64;
-struct AsciiCanvas {
-	text: [[char; AC_WIDTH]; AC_HEIGHT],
+struct TextCanvas {
+	text: Vec<char>,
 	x: usize,
 	y: usize,
+	width: usize,
+	height: usize,
 	y_max: usize,
 }
-struct AsciiCanvasState {
+struct TextCanvasState {
 	x: usize,
 	y: usize,
 }
 
-impl AsciiCanvas {
-	fn new() -> AsciiCanvas {
-		AsciiCanvas { text: [[' '; AC_WIDTH];AC_HEIGHT], x: 0, y: 0, y_max: 0 }
+impl TextCanvas {
+	fn new(width: usize, height: usize) -> TextCanvas {
+		let size = width * height;
+		let mut text = Vec::with_capacity(size);
+		for _ in 0..size {
+			text.push(' ');
+		}
+		TextCanvas { text: text, x: 0, y: 0, width: width, height: height, y_max: 0 }
 	}
 	fn down(&mut self) {
-		self.y += 1;
+		let mut new_y = self.y + 1;
+		if new_y > (self.height - 1) {
+			new_y = self.height - 1;
+		}
+		self.y = new_y;
 		if self.y > self.y_max {
 			self.y_max = self.y;
 		}
 	}
 	fn left(&mut self, len: usize) {
-		self.x -= len;
+		if len > self.x {
+			self.x = 0;
+		}
+		else {
+			self.x -= len;
+		}
 	}
 	fn right(&mut self, len: usize) {
-		self.x += len;
+		let mut new_x = self.x + len;
+		if new_x > (self.width - 1)  {
+			new_x = self.width - 1;
+		}
+		self.x = new_x;
+	}
+	fn do_str_fix(&mut self, s: &str) -> usize {
+		let chars = s.chars();
+		let offset = self.y * self.width;
+		let mut i = 0;
+		for c in chars {
+			let cursor = self.x + i;
+			if cursor > (self.width - 1) {
+				break;
+			}
+			self.text[offset + cursor] = c;
+			i += 1;
+		}
+		i
 	}
 	fn do_str(&mut self, s: &str) {
-		let chars = s.chars();
-		for c in chars {
-			self.text[self.y][self.x] = c;
-			self.x += 1;
-		}
+		let len = self.do_str_fix(s);
+		self.x += len;
 	}
 	fn do_str_n(&mut self, s: &str, n: usize) {
 		for _ in 0..n {
 			self.do_str(s);
 		}
 	}
-	fn do_str_fix(&mut self, s: &str) {
-		let chars = s.chars();
-		let mut i = 0;
-		for c in chars {
-			self.text[self.y][self.x + i] = c;
-			i += 1;
-		}
-	}
 	fn to_string(&self) -> String {
 		let mut ret = String::new();
-		for i in 0..self.y_max+1 {
-			for j in 0..AC_WIDTH {
-				ret.push(self.text[i][j]);
+		let mut offset = 0;
+		for _ in 0..self.y_max+1 {
+			for j in 0..self.width {
+				ret.push(self.text[offset + j]);
 			}
+			offset += self.width;
 			ret.push('\n');
 		}
 		ret
 	}
-	fn get_state(&self) -> AsciiCanvasState {
-		AsciiCanvasState { x: self.x, y: self.y }
+	fn get_state(&self) -> TextCanvasState {
+		TextCanvasState { x: self.x, y: self.y }
 	}
-	fn set_state(&mut self, state: AsciiCanvasState) {
+	fn set_state(&mut self, state: TextCanvasState) {
 		self.x = state.x;
 		self.y = state.y;
 	}
+}
+
+#[test]
+fn test_text_canvas() {
+	let mut tc = TextCanvas::new(4, 4);
+	tc.down();
+	tc.right(1);
+	tc.do_str_fix("xy");
+	tc.down();
+	tc.left(1);
+	tc.do_str_fix("ab");
+	let expected = "    \n xy \nab  \n";
+	assert_eq!(expected, tc.to_string());
 }
 
 enum EvalError {
@@ -296,7 +331,7 @@ impl Tree {
 		&self.arena.arena[id]
 	}
 
-	fn draw_node(&self, node_id: usize, pad: usize, canvas: &mut AsciiCanvas) {
+	fn draw_node(&self, node_id: usize, pad: usize, canvas: &mut TextCanvas) {
 		let node = self.get_node(node_id);
 
 		canvas.do_str_fix(&node.token.to_string());
@@ -331,7 +366,7 @@ impl Tree {
 	}
 
 	fn to_string(&self) -> String {
-		let mut canvas = AsciiCanvas::new();
+		let mut canvas = TextCanvas::new(64, 64);
 		let pad = 16;
 		canvas.right(pad);
 		self.draw_node(self.root, pad, &mut canvas);
