@@ -10,7 +10,7 @@ struct NumVal {
 
 impl NumVal {
 	fn to_string(&self) -> String {
-		format!("n:{}", self.val)
+		format!("{}", self.val)
 	}
 }
 
@@ -25,7 +25,6 @@ enum Token {
 	Sub,
 	Mul,
 	Div,
-	Neg,
 }
 
 
@@ -40,7 +39,6 @@ impl Token {
 			Token::Sub => "-".into(),
 			Token::Mul => "*".into(),
 			Token::Div => "/".into(),
-			Token::Neg => "neg".into()
 		}
 	}
 }
@@ -213,8 +211,7 @@ impl AsciiCanvas {
 		}
 	}
 	fn do_str_n(&mut self, s: &str, n: usize) {
-		let chars = s.chars();
-		for i in 0..n {
+		for _ in 0..n {
 			self.do_str(s);
 		}
 	}
@@ -295,9 +292,36 @@ impl Tree {
 		canvas.to_string()
 	}
 
+	fn eval_node(&self, node_id: usize) -> i32 {
+		let node = self.get_node(node_id);
+		
+		let val_left = if let Some(left) = node.left {
+			self.eval_node(left)
+		}
+		else {
+			0
+		};
+
+		let val_right = if let Some(right) = node.right {
+			self.eval_node(right)
+		}
+		else {
+			0
+		};
+
+		match node.token {
+			Token::Nothing => 0,
+			Token::Number(ref nv) => nv.val,
+			Token::ParOpen => 0,
+			Token::ParClose => 0,
+			Token::Add => val_left + val_right,
+			Token::Sub => val_left - val_right,
+			Token::Mul => val_left * val_right,
+			Token::Div => val_left / val_right,
+		}
+	}
 	fn eval(&self) -> NumVal {
-		let mut val = 0;
-		//eval_node(self.root)
+		let val = self.eval_node(self.root);
 		NumVal { val: val }
 	}
 }
@@ -417,13 +441,13 @@ fn parse_term(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 
 // { - T }*
 // { + T }*
-fn parse_expression_right(tg: &mut TokenGetter, arena: &mut TreeArena, mut left: usize) -> ParseResult {
+fn parse_expression_right(tg: &mut TokenGetter, arena: &mut TreeArena, left: usize) -> ParseResult {
 	let op = match tg.peek() {
 		Some(op) => op,
 		None => { return ParseResult::None; }
 	};
 
-	println!("parse_expression_right: matching {}", op.to_string());
+	//println!("parse_expression_right: matching {}", op.to_string());
 
 	match *op {
 		Token::Add | Token::Sub => (),
@@ -497,6 +521,8 @@ fn eval_input(input: &str) -> String {
 		print!("[{}] ", t.to_string());
 	}
 	println!("");
+
+	println!("tree:");
 	if let Some(tree) = make_tree(tokens) {
 		println!("{}", tree.to_string());
 		tree.eval().to_string()
@@ -507,7 +533,7 @@ fn eval_input(input: &str) -> String {
 }
 
 fn main() {
-	println!("={}", eval_input("1 +2 -3"));
+	println!("= {}", eval_input("8/2 + 1 + 3*5"));
 	/*
 	if gtk::init().is_err() {
 		println!("Failed to initialize GTK.");
