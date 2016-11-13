@@ -1,8 +1,10 @@
 extern crate gtk;
-//extern crate gdk;
 use gtk::prelude::*;
 use gtk::{Window, WindowType, Entry, Label, Box, Orientation, Menu, MenuBar, MenuItem,
 	AboutDialog, License, CssProvider, StyleContext};
+
+mod text_canvas;
+use text_canvas::TextCanvas;
 
 #[derive(Copy,Clone)]
 struct NumVal {
@@ -203,110 +205,6 @@ impl TreeArena {
 		self.arena.push( Node { token: token, left: Some(left), right: Some(right) } );
 		self.arena.len() - 1
 	}
-}
-
-struct TextCanvas {
-	text: Vec<char>,
-	x: usize,
-	y: usize,
-	width: usize,
-	height: usize,
-	y_max: usize,
-}
-struct TextCanvasState {
-	x: usize,
-	y: usize,
-}
-
-impl TextCanvas {
-	fn new(width: usize, height: usize) -> TextCanvas {
-		let size = width * height;
-		let mut text = Vec::with_capacity(size);
-		for _ in 0..size {
-			text.push(' ');
-		}
-		TextCanvas { text: text, x: 0, y: 0, width: width, height: height, y_max: 0 }
-	}
-	fn down(&mut self) {
-		let mut new_y = self.y + 1;
-		if new_y > (self.height - 1) {
-			new_y = self.height - 1;
-		}
-		self.y = new_y;
-		if self.y > self.y_max {
-			self.y_max = self.y;
-		}
-	}
-	fn left(&mut self, len: usize) {
-		if len > self.x {
-			self.x = 0;
-		}
-		else {
-			self.x -= len;
-		}
-	}
-	fn right(&mut self, len: usize) {
-		let mut new_x = self.x + len;
-		if new_x > (self.width - 1)  {
-			new_x = self.width - 1;
-		}
-		self.x = new_x;
-	}
-	fn do_str_fix(&mut self, s: &str) -> usize {
-		let chars = s.chars();
-		let offset = self.y * self.width;
-		let mut i = 0;
-		for c in chars {
-			let cursor = self.x + i;
-			if cursor > (self.width - 1) {
-				break;
-			}
-			self.text[offset + cursor] = c;
-			i += 1;
-		}
-		i
-	}
-	fn do_str(&mut self, s: &str) {
-		let len = self.do_str_fix(s);
-		self.x += len;
-	}
-	fn do_str_n(&mut self, s: &str, n: usize) {
-		for _ in 0..n {
-			self.do_str(s);
-		}
-	}
-	fn to_string(&self) -> String {
-		let mut ret = String::new();
-		let mut offset = 0;
-		for _ in 0..self.y_max+1 {
-			for j in 0..self.width {
-				ret.push(self.text[offset + j]);
-			}
-			offset += self.width;
-			ret.push('\n');
-		}
-		ret
-	}
-	fn get_state(&self) -> TextCanvasState {
-		TextCanvasState { x: self.x, y: self.y }
-	}
-	fn set_state(&mut self, state: TextCanvasState) {
-		self.x = state.x;
-		self.y = state.y;
-	}
-}
-
-#[test]
-fn test_text_canvas() {
-	let mut tc = TextCanvas::new(4, 4);
-	tc.down();
-	tc.right(1);
-	tc.do_str_fix("xy");
-	tc.down();
-	tc.left(1);
-	tc.do_str_fix("ab");
-	let expected = "    \n xy \nab  \n";
-	assert_eq!(expected, tc.to_string());
 }
 
 enum EvalError {
