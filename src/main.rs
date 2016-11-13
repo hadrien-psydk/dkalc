@@ -12,6 +12,30 @@ impl NumVal {
 	fn to_string(&self) -> String {
 		format!("{}", self.val)
 	}
+
+	fn is_zero(&self) -> bool {
+		self.val == 0
+	}
+
+	fn zero() -> NumVal {
+		NumVal { val: 0 }
+	}
+
+	fn add(nv0: NumVal, nv1: NumVal) -> NumVal {
+		NumVal { val: nv0.val + nv1.val }
+	}
+
+	fn sub(nv0: NumVal, nv1: NumVal) -> NumVal {
+		NumVal { val: nv0.val - nv1.val }
+	}
+
+	fn mul(nv0: NumVal, nv1: NumVal) -> NumVal {
+		NumVal { val: nv0.val * nv1.val }
+	}
+
+	fn div(nv0: NumVal, nv1: NumVal) -> NumVal {
+		NumVal { val: nv0.val / nv1.val }
+	}
 }
 
 #[allow(dead_code)]
@@ -237,6 +261,18 @@ impl AsciiCanvas {
 	}
 }
 
+enum EvalError {
+	DivideByZero
+}
+
+impl EvalError {
+	fn to_string(&self) -> String {
+		match *self {
+			EvalError::DivideByZero => "divide by zero".into()
+		}
+	}
+}
+
 struct Tree {
     arena: TreeArena,
 	root: usize,
@@ -289,37 +325,45 @@ impl Tree {
 		canvas.to_string()
 	}
 
-	fn eval_node(&self, node_id: usize) -> i32 {
+	fn eval_node(&self, node_id: usize) -> Result<NumVal, EvalError> {
 		let node = self.get_node(node_id);
 		
 		let val_left = if let Some(left) = node.left {
-			self.eval_node(left)
+			try!(self.eval_node(left))
 		}
 		else {
-			0
+			NumVal::zero()
 		};
 
 		let val_right = if let Some(right) = node.right {
-			self.eval_node(right)
+			try!(self.eval_node(right))
 		}
 		else {
-			0
+			NumVal::zero()
 		};
 
-		match node.token {
-			Token::Nothing => 0,
-			Token::Number(ref nv) => nv.val,
-			Token::ParOpen => 0,
-			Token::ParClose => 0,
-			Token::Add => val_left + val_right,
-			Token::Sub => val_left - val_right,
-			Token::Mul => val_left * val_right,
-			Token::Div => val_left / val_right,
-		}
+		let nv_result = match node.token {
+			Token::Nothing => NumVal::zero(),
+			Token::Number(ref nv) => *nv,
+			Token::ParOpen => NumVal::zero(),
+			Token::ParClose => NumVal::zero(),
+			Token::Add => NumVal::add(val_left, val_right),
+			Token::Sub => NumVal::sub(val_left, val_right),
+			Token::Mul => NumVal::mul(val_left, val_right),
+			Token::Div => {
+				if val_right.is_zero() {
+					return Err(EvalError::DivideByZero)
+				}
+				else {
+					NumVal::div(val_left, val_right)
+				}
+			},
+		};
+		Ok(nv_result)
 	}
-	fn eval(&self) -> NumVal {
-		let val = self.eval_node(self.root);
-		NumVal { val: val }
+
+	fn eval(&self) -> Result<NumVal, EvalError> {
+		self.eval_node(self.root)
 	}
 }
 
@@ -532,7 +576,10 @@ fn eval_input(input: &str) -> String {
 	println!("tree:");
 	if let Some(tree) = make_tree(tokens) {
 		println!("{}", tree.to_string());
-		tree.eval().to_string()
+		match tree.eval() {
+			Ok(nv) => nv.to_string(),
+			Err(err) => err.to_string()
+		}
 	}
 	else {
 		"<no tree>".into()
@@ -546,7 +593,7 @@ fn test_eval() {
 }
 
 fn main() {
-	println!("= {}", eval_input("2 *3 *4"));
+	println!("= {}", eval_input("2/0"));
 	/*
 	if gtk::init().is_err() {
 		println!("Failed to initialize GTK.");
