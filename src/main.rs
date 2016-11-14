@@ -5,6 +5,7 @@ use gtk::{Window, WindowType, Entry, Label, Box, Orientation, Menu, MenuBar, Men
 
 mod text_canvas;
 mod eval;
+mod num_val;
 
 fn main() {
 	//println!("= {}", eval_input("3%2"));
@@ -42,19 +43,19 @@ fn main() {
 	gtk_box.pack_start(&menu_bar, true, true, 0);
 
 	let label = Label::new(Some("0"));
+	label.set_name("result");
 	gtk_box.pack_start(&label, true, true, 0);
 
 	let entry = Entry::new();
 	gtk_box.pack_start(&entry, true, true, 0);
 
 	let css_provider = CssProvider::new();
-	let css = "label { font: monospace 15; }";
+	let css = "#result { font: monospace 15; }";
 	if let Err(err) = css_provider.load_from_data(css) {
 		println!("{}", err);
 		return;
 	}
 	StyleContext::add_provider_for_screen(
-		//&gdk::Screen::get_default().unwrap(),
 		&gtk::WidgetExt::get_screen(&window).unwrap(),
 		&css_provider,
 		800 // gtk_sys::GTK_STYLE_PROVIDER_PRIORITY_USER
@@ -73,7 +74,7 @@ fn main() {
         ad.set_website(Some("http://psydk.org"));
         ad.set_title("About dkalc");
 		ad.set_program_name("dkalc");
-		ad.set_version(Some("1.0-beta"));
+		ad.set_version(Some("0.1.0"));
 		ad.set_license_type(License::Gpl20);
         ad.set_transient_for(Some(&window));
         ad.run();

@@ -1,49 +1,6 @@
 use std;
 use text_canvas::TextCanvas;
-
-#[derive(Copy,Clone)]
-struct NumVal {
-	val: i32
-}
-
-impl NumVal {
-	fn to_string(&self) -> String {
-		format!("{}", self.val)
-	}
-
-	fn is_zero(&self) -> bool {
-		self.val == 0
-	}
-
-	fn negate(&self) -> NumVal {
-		NumVal { val: -self.val }
-	}
-
-
-	fn zero() -> NumVal {
-		NumVal { val: 0 }
-	}
-
-	fn add(nv0: NumVal, nv1: NumVal) -> NumVal {
-		NumVal { val: nv0.val + nv1.val }
-	}
-
-	fn sub(nv0: NumVal, nv1: NumVal) -> NumVal {
-		NumVal { val: nv0.val - nv1.val }
-	}
-
-	fn mul(nv0: NumVal, nv1: NumVal) -> NumVal {
-		NumVal { val: nv0.val * nv1.val }
-	}
-
-	fn div(nv0: NumVal, nv1: NumVal) -> NumVal {
-		NumVal { val: nv0.val / nv1.val }
-	}
-
-	fn div_mod(nv0: NumVal, nv1: NumVal) -> NumVal {
-		NumVal { val: nv0.val % nv1.val }
-	}
-}
+use num_val::NumVal;
 
 #[allow(dead_code)]
 #[derive(Copy,Clone)]
@@ -113,7 +70,7 @@ impl<'a> InputContext<'a> {
 			val += val2.unwrap();
 			self.input_chars.next();
 		}
-		Some( NumVal { val: val } )
+		Some(NumVal::from_i32(val))
 	}
 
 	fn next_token(&mut self) -> Option<Token> {
