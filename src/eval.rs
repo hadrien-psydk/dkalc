@@ -44,35 +44,6 @@ impl<'a> InputContext<'a> {
 		InputContext { input_chars: ic }
 	}
 	
-	fn parse_number(&mut self, c_first: char) -> Option<NumVal> {
-		let mut val = 0;
-		val += c_first.to_digit(10).unwrap() as i32;
-		loop {
-			let val2 = {
-				let c_opt = self.input_chars.peek();
-				if c_opt.is_none() {
-					None
-				}
-				else {
-					let c = c_opt.unwrap();
-					if c.is_digit(10) {
-						Some(c.to_digit(10).unwrap() as i32)
-					}
-					else {
-						None
-					}
-				}
-			};
-			if val2.is_none() {
-				break;
-			}
-			val *= 10;
-			val += val2.unwrap();
-			self.input_chars.next();
-		}
-		Some(NumVal::from_i32(val))
-	}
-
 	fn next_token(&mut self) -> Option<Token> {
 		let ret;
 		loop {
@@ -83,7 +54,7 @@ impl<'a> InputContext<'a> {
 			}
 			let c = c_opt.unwrap();
 			if c.is_digit(10) {
-				let num_opt = self.parse_number(c);
+				let num_opt = NumVal::parse(&mut self.input_chars, c);
 				if num_opt.is_none() {
 					ret = None;
 					break;
@@ -147,20 +118,20 @@ struct Node {
 }
 
 struct TreeArena {
-	arena: Vec<Node>,
+	nodes: Vec<Node>,
 }
 
 impl TreeArena {
 	fn new_with_size(size: usize) -> TreeArena {
-		TreeArena { arena: Vec::with_capacity(size) }
+		TreeArena { nodes: Vec::with_capacity(size) }
 	}
 	fn push_single(&mut self, token: Token) -> usize {
-		self.arena.push( Node { token: token, left: None, right: None } );
-		self.arena.len() - 1
+		self.nodes.push( Node { token: token, left: None, right: None } );
+		self.nodes.len() - 1
 	}
 	fn push_dual(&mut self, token: Token, left: usize, right: usize) -> usize {
-		self.arena.push( Node { token: token, left: Some(left), right: Some(right) } );
-		self.arena.len() - 1
+		self.nodes.push( Node { token: token, left: Some(left), right: Some(right) } );
+		self.nodes.len() - 1
 	}
 }
 
@@ -183,7 +154,7 @@ struct Tree {
 
 impl Tree {
 	fn get_node(&self, id: usize) -> &Node {
-		&self.arena.arena[id]
+		&self.arena.nodes[id]
 	}
 
 	fn draw_node(&self, node_id: usize, pad: usize, canvas: &mut TextCanvas) {

@@ -1,4 +1,4 @@
-//use std;
+use std;
 
 #[derive(Copy,Clone)]
 pub struct NumVal {
@@ -44,5 +44,34 @@ impl NumVal {
 
 	pub fn from_i32(val: i32) -> NumVal {
 		NumVal { val: val }
+	}
+
+	pub fn parse(input_chars: &mut std::iter::Peekable<std::str::Chars>, c_first: char) -> Option<NumVal> {
+		let mut val = 0;
+		val += c_first.to_digit(10).unwrap() as i32;
+		loop {
+			let val2 = {
+				let c_opt = input_chars.peek();
+				if c_opt.is_none() {
+					None
+				}
+				else {
+					let c = c_opt.unwrap();
+					if c.is_digit(10) {
+						Some(c.to_digit(10).unwrap() as i32)
+					}
+					else {
+						None
+					}
+				}
+			};
+			if val2.is_none() {
+				break;
+			}
+			val *= 10;
+			val += val2.unwrap();
+			input_chars.next();
+		}
+		Some(NumVal::from_i32(val))
 	}
 }
