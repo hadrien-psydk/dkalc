@@ -8,6 +8,15 @@ mod eval;
 mod num_val;
 
 fn main() {
+	let nv0 = num_val::NumVal::from_i32(123);
+	println!("{}", nv0.to_string());
+
+	let nv1 = num_val::NumVal::from_i32(23);
+	println!("{}", nv1.to_string());
+
+	let nv2 = num_val::NumVal::sub(nv0, nv1);
+	println!("{}", nv2.to_string());
+
 	//println!("= {}", eval_input("3%2"));
 
 	if gtk::init().is_err() {
