@@ -1,8 +1,17 @@
 use std;
 use std::char;
 
-const FRAC_LEN: usize = 10; // number of digits used for the fractional part
+const FRAC_LEN: usize = 3; // number of digits used for the fractional part
 const MAX_LEN: usize = FRAC_LEN + 10;
+const MAX_LEN_MUL: usize = MAX_LEN*2+1; // Max len for multiplication result
+
+fn print_digits(digits: &[u8]) {
+	print!("{}", digits[0]);
+	for i in 1..digits.len() {
+		print!(",{}", digits[i]);
+	}
+	println!("");
+}
 
 fn find_bounds(digits: &[u8]) -> (usize, usize) {
 	let mut start_at = 0;
@@ -26,7 +35,7 @@ fn find_bounds(digits: &[u8]) -> (usize, usize) {
 #[derive(Copy,Clone,Debug)]
 pub struct NumVal {
 	neg: bool,
-	digits: [u8;MAX_LEN], // little-endian. 1402.658 -> 2,0,4,1,..0
+	digits: [u8;MAX_LEN], // little-endian. 1402.658 -> 0,0,0,...,8,5,6,2,0,4,1,..0
 }
 
 impl NumVal {
@@ -96,17 +105,24 @@ impl NumVal {
 		ret
 	}
 
-	// add without looking at the negative state of the inputs
-	fn add_u(nv0: NumVal, nv1: NumVal) -> NumVal {
-		let mut ret = NumVal::zero();
+	// add arbitrary length but consistent among all arguments
+	// digits0: digits to add to digits1
+	// digits1: existing values
+	fn accumulate_u(digits0: &[u8], digits1: &mut [u8]) {
 		let mut carry = 0;
-		for i in 0..MAX_LEN {
-			let z = nv0.digits[i] + nv1.digits[i] + carry;
+		for i in 0..digits0.len() {
+			let z = digits0[i] + digits1[i] + carry;
 			carry = z / 10;
 			let z2 = z % 10;
-			ret.digits[i] = z2;
+			digits1[i] = z2;
 		}
-		ret
+	}
+
+	// add without looking at the negative state of the inputs
+	fn add_u(nv0: NumVal, nv1: NumVal) -> NumVal {
+		let mut nv1_digits = nv1.digits;
+		NumVal::accumulate_u(&nv0.digits, &mut nv1_digits);
+		NumVal { neg: false, digits: nv1_digits }
 	}
 
 	// subtract without looking at the negative state of the inputs
@@ -120,7 +136,7 @@ impl NumVal {
 			let y = nv1.digits[i];
 			let (x, y) = if swap { (y, x) } else { (x, y) };
 
-			let mut z;
+			let z;
 			if x >= (y + carry) {
 				z = x - (y + carry);
 				carry = 0;
@@ -181,8 +197,54 @@ impl NumVal {
 		return NumVal::sub_u(nv0, nv1);
 	}
 
+	fn mul_u_digit(nv0: &NumVal, digit: u8, shift: usize) -> [u8;MAX_LEN_MUL] {
+		let mut line = [0u8;MAX_LEN_MUL];
+		let mut carry = 0;
+		for i in 0..MAX_LEN {
+			let z = digit * nv0.digits[i] + carry;
+			carry = z / 10;
+			line[shift + i] = z % 10;
+		}
+		line
+	}
+
+	fn mul_u(nv0: NumVal, nv1: NumVal) -> NumVal {
+		let mut result = [0u8;MAX_LEN_MUL];
+		for i in 0..MAX_LEN {
+			let line = NumVal::mul_u_digit(&nv0, nv1.digits[i], i);
+			NumVal::accumulate_u(&line, &mut result);
+		}
+		//print_digits(&result);
+		let mut ret = NumVal::zero();
+		let copy_start = FRAC_LEN;
+		let copy_stop = FRAC_LEN+MAX_LEN;
+		//println!("start/stop: {} {}", copy_start, copy_stop);
+		ret.digits.copy_from_slice(&result[copy_start..copy_stop]);
+		//println!("after copy: {:?}", ret);
+		ret
+	}
+
 	pub fn mul(nv0: NumVal, nv1: NumVal) -> NumVal {
-		NumVal::zero()
+		if nv0.neg {
+			if nv1.neg {
+				return NumVal::mul_u(nv0, nv1);
+			}
+			else {
+				let mut ret = NumVal::mul_u(nv0, nv1);
+				ret.neg = true;
+				return ret;
+			}
+		}
+		else {
+			if nv1.neg {
+				let mut ret = NumVal::mul_u(nv0, nv1);
+				ret.neg = true;
+				return ret;
+			}
+			else {
+				return NumVal::mul_u(nv0, nv1);
+			}
+		}
 	}
 
 	pub fn div(nv0: NumVal, nv1: NumVal) -> NumVal {
@@ -254,6 +316,19 @@ fn test_sub() {
 	assert_eq!("1",  NumVal::sub(NumVal::from_i32(-1), NumVal::from_i32(-2)).to_string());
 	assert_eq!("-3", NumVal::sub(NumVal::from_i32(-1), NumVal::from_i32(2)).to_string());
 	assert_eq!("3",  NumVal::sub(NumVal::from_i32(1),  NumVal::from_i32(-2)).to_string());
-
 }
+
+#[test]
+fn test_mul() {
+	assert_eq!("15",  NumVal::mul(NumVal::from_i32(3),  NumVal::from_i32(5)).to_string());
+	assert_eq!("150",  NumVal::mul(NumVal::from_i32(30),  NumVal::from_i32(5)).to_string());
+	assert_eq!("1500",  NumVal::mul(NumVal::from_i32(30),  NumVal::from_i32(50)).to_string());
+	assert_eq!("9801",  NumVal::mul(NumVal::from_i32(99),  NumVal::from_i32(99)).to_string());
+
+	assert_eq!("28",  NumVal::mul(NumVal::from_i32(4),  NumVal::from_i32(7)).to_string());
+	assert_eq!("-28",  NumVal::mul(NumVal::from_i32(-4),  NumVal::from_i32(7)).to_string());
+	assert_eq!("-28",  NumVal::mul(NumVal::from_i32(4),  NumVal::from_i32(-7)).to_string());
+	assert_eq!("28",  NumVal::mul(NumVal::from_i32(-4),  NumVal::from_i32(-7)).to_string());
+}
+
 
