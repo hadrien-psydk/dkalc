@@ -1,8 +1,10 @@
 use std;
 use std::char;
 
+const INT_LEN: usize = 6;  // number of digits used for the integer part
 const FRAC_LEN: usize = 3; // number of digits used for the fractional part
-const MAX_LEN: usize = FRAC_LEN + 10;
+
+const MAX_LEN: usize = FRAC_LEN + INT_LEN;
 const MAX_LEN_MUL: usize = MAX_LEN*2+1; // Max len for multiplication result
 
 fn print_digits(digits: &[u8]) {
@@ -36,6 +38,11 @@ fn find_bounds(digits: &[u8]) -> (usize, usize) {
 pub struct NumVal {
 	neg: bool,
 	digits: [u8;MAX_LEN], // little-endian. 1402.658 -> 0,0,0,...,8,5,6,2,0,4,1,..0
+}
+
+struct DivRet {
+	quotient: NumVal,
+	remainder: NumVal,
 }
 
 impl NumVal {
@@ -75,7 +82,7 @@ impl NumVal {
 	pub fn to_string(&self) -> String {
 		let mut ret = String::with_capacity(MAX_LEN + 2);
 		let (start_at, stop_at) = find_bounds(&self.digits);
-		println!("bounds: {} {}", start_at, stop_at);
+		//println!("bounds: {} {}", start_at, stop_at);
 
 		if start_at == stop_at {
 			ret.push('0');
@@ -85,10 +92,18 @@ impl NumVal {
 				ret.push('-');
 			}
 
-			for i in (start_at..stop_at).rev() {
+			for i in (FRAC_LEN..stop_at).rev() {
 				let x = self.digits[i] as u32;
 				let c = char::from_u32(48 + x).unwrap();
 				ret.push(c);
+			}
+			if start_at < FRAC_LEN {
+				ret.push('.');
+				for i in (start_at..FRAC_LEN).rev() {
+					let x = self.digits[i] as u32;
+					let c = char::from_u32(48 + x).unwrap();
+					ret.push(c);
+				}
 			}
 		}
 		ret
@@ -214,13 +229,8 @@ impl NumVal {
 			let line = NumVal::mul_u_digit(&nv0, nv1.digits[i], i);
 			NumVal::accumulate_u(&line, &mut result);
 		}
-		//print_digits(&result);
 		let mut ret = NumVal::zero();
-		let copy_start = FRAC_LEN;
-		let copy_stop = FRAC_LEN+MAX_LEN;
-		//println!("start/stop: {} {}", copy_start, copy_stop);
-		ret.digits.copy_from_slice(&result[copy_start..copy_stop]);
-		//println!("after copy: {:?}", ret);
+		ret.digits.copy_from_slice(&result[FRAC_LEN..FRAC_LEN+MAX_LEN]);
 		ret
 	}
 
@@ -247,12 +257,79 @@ impl NumVal {
 		}
 	}
 
+	fn shift_right(&mut self) {
+		for i in 0..MAX_LEN-1 {
+			self.digits[MAX_LEN-1-i] = self.digits[MAX_LEN-2-i];
+		}
+		self.digits[0] = 0;
+	}
+
+	fn div_u(nv0: NumVal, nv1: NumVal, with_frac: bool) -> DivRet {
+		let mut tmp = NumVal::zero();
+		let mut i = MAX_LEN - 1;
+		let stop_at = if with_frac { 0 } else { FRAC_LEN };
+		let mut result = NumVal::zero();
+
+		loop {
+			tmp.digits[FRAC_LEN] = nv0.digits[i];
+
+			let mut counter = 0;
+			loop {
+				let next_diff = NumVal::sub_u(tmp, nv1);
+				if next_diff.neg {
+					break;
+				}
+				tmp = next_diff;
+				counter += 1;
+			}
+			result.shift_right();
+			result.digits[0] = counter;
+			
+			if i == stop_at {
+				break;
+			}
+			i -= 1;
+			tmp.neg = false;
+			tmp.shift_right();
+		}
+		DivRet { quotient: result, remainder: tmp }
+	}
+
 	pub fn div(nv0: NumVal, nv1: NumVal) -> NumVal {
-		NumVal::zero()
+		if nv0.neg {
+			if nv1.neg {
+				let div_ret = NumVal::div_u(nv0, nv1, true);
+				return div_ret.quotient;
+			}
+			else {
+				let mut div_ret = NumVal::div_u(nv0, nv1, true);
+				div_ret.quotient.neg = true;
+				return div_ret.quotient;
+			}
+		}
+		else {
+			if nv1.neg {
+				let mut div_ret = NumVal::div_u(nv0, nv1, true);
+				div_ret.quotient.neg = true;
+				return div_ret.quotient;
+			}
+			else {
+				let div_ret = NumVal::div_u(nv0, nv1, true);
+				return div_ret.quotient;
+			}
+		}
 	}
 
 	pub fn div_mod(nv0: NumVal, nv1: NumVal) -> NumVal {
-		NumVal::zero()
+		if nv1.neg {
+			let mut div_ret = NumVal::div_u(nv0, nv1, false);
+			div_ret.remainder.neg = true;
+			return div_ret.remainder;
+		}
+		else {
+			let div_ret = NumVal::div_u(nv0, nv1, false);
+			return div_ret.remainder;
+		}
 	}
 
 	pub fn parse(input_chars: &mut std::iter::Peekable<std::str::Chars>, c_first: char) -> Option<NumVal> {
@@ -331,4 +408,18 @@ fn test_mul() {
 	assert_eq!("28",  NumVal::mul(NumVal::from_i32(-4),  NumVal::from_i32(-7)).to_string());
 }
 
+#[test]
+fn test_div() {
+	assert_eq!("15.625",  NumVal::div(NumVal::from_i32(1000),  NumVal::from_i32(64)).to_string());
+	assert_eq!("-15.625",  NumVal::div(NumVal::from_i32(-1000),  NumVal::from_i32(64)).to_string());
+	assert_eq!("-15.625",  NumVal::div(NumVal::from_i32(1000),  NumVal::from_i32(-64)).to_string());
+	assert_eq!("15.625",  NumVal::div(NumVal::from_i32(-1000),  NumVal::from_i32(-64)).to_string());
+}
 
+#[test]
+fn test_div_mod() {
+	assert_eq!("4",  NumVal::div_mod(NumVal::from_i32(100),  NumVal::from_i32(48)).to_string());
+	assert_eq!("4",  NumVal::div_mod(NumVal::from_i32(-100),  NumVal::from_i32(48)).to_string());
+	assert_eq!("-4",  NumVal::div_mod(NumVal::from_i32(100),  NumVal::from_i32(-48)).to_string());
+	assert_eq!("-4",  NumVal::div_mod(NumVal::from_i32(-100),  NumVal::from_i32(-48)).to_string());
+}

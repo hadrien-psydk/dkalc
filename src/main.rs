@@ -8,16 +8,17 @@ mod eval;
 mod num_val;
 
 fn main() {
-	let nv0 = num_val::NumVal::from_i32(123);
-	println!("{}", nv0.to_string());
+	println!("{}", num_val::NumVal::div(
+		num_val::NumVal::from_i32(100),
+		num_val::NumVal::from_i32(48)
+		).to_string()
+	);
 
-	let nv1 = num_val::NumVal::from_i32(23);
-	println!("{}", nv1.to_string());
-
-	let nv2 = num_val::NumVal::sub(nv0, nv1);
-	println!("{}", nv2.to_string());
-
-	//println!("= {}", eval_input("3%2"));
+	println!("{}", num_val::NumVal::div_mod(
+		num_val::NumVal::from_i32(100),
+		num_val::NumVal::from_i32(48)
+		).to_string()
+	);
 
 	if gtk::init().is_err() {
 		println!("Failed to initialize GTK.");
@@ -97,7 +98,6 @@ fn main() {
 	entry.connect_changed(move |arg| {
 		if let Some(str) = arg.get_chars(0, -1) {
 			let result = eval::eval_input(&str);
-			//println!("text changed: {} = {}", str, result);
 			label.set_label(&result);
 		}
 	});
