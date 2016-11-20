@@ -1,5 +1,6 @@
 use std;
 use text_canvas::TextCanvas;
+use num_val;
 use num_val::NumVal;
 
 #[allow(dead_code)]
@@ -33,6 +34,21 @@ impl Token {
 	}
 }
 
+enum TokenError {
+	Nothing, // End of string
+	BadChar(char),
+	BadNum(num_val::Error)
+}
+
+impl TokenError {
+	fn to_string(&self) -> String {
+		match *self {
+			TokenError::Nothing => "".into(),
+			TokenError::BadChar(c) => format!("bad char: '{}'", c),
+			TokenError::BadNum(ref nverr) => nverr.to_string()
+		}
+	}
+}
 
 struct InputContext<'a> {
 	input_chars: std::iter::Peekable<std::str::Chars<'a>>
@@ -44,68 +60,86 @@ impl<'a> InputContext<'a> {
 		InputContext { input_chars: ic }
 	}
 	
-	fn next_token(&mut self) -> Option<Token> {
+	fn next_token(&mut self) -> Result<Token, TokenError> {
 		let ret;
 		loop {
-			let num_opt = NumVal::parse_chars(&mut self.input_chars);
-			if num_opt.is_some() {
-				ret = Some(Token::Number(num_opt.unwrap()));
-				break;
+			let num_res = NumVal::parse_chars(&mut self.input_chars);
+			match num_res {
+				Ok(num) => {
+					ret = Ok(Token::Number(num));
+					break;
+				},
+				Err(err) => {
+					match err {
+						num_val::Error::Nothing => (), // Not a problem
+						_ => { return Err(TokenError::BadNum(err)); }
+					}
+				}
 			}
 
 			let c_opt = self.input_chars.next();
 			if c_opt.is_none() {
-				ret = None;
+				ret = Err(TokenError::Nothing);
 				break;
 			}
 			let c = c_opt.unwrap();
 			if c == '(' {
-				ret = Some(Token::ParOpen);
+				ret = Ok(Token::ParOpen);
 				break;
 			}
 			else if c == ')' {
-				ret = Some(Token::ParClose);
+				ret = Ok(Token::ParClose);
 				break;
 			}
 			else if c == '+' {
-				ret = Some(Token::Add);
+				ret = Ok(Token::Add);
 				break;
 			}
 			else if c == '-' {
-				ret = Some(Token::Sub);
+				ret = Ok(Token::Sub);
 				break;
 			}
 			else if c == '*' {
-				ret = Some(Token::Mul);
+				ret = Ok(Token::Mul);
 				break;
 			}
 			else if c == '/' {
-				ret = Some(Token::Div);
+				ret = Ok(Token::Div);
 				break;
 			}
 			else if c == '%' {
-				ret = Some(Token::Mod);
+				ret = Ok(Token::Mod);
 				break;
 			}
 			else if c == ' ' {
 				// continue
+			}
+			else
+			{
+				return Err(TokenError::BadChar(c));
 			}
 		}
 		ret
 	}
 }
 
-fn tokenize(input: &str) -> Vec<Token> {
+fn tokenize(input: &str) -> Result<Vec<Token>, TokenError> {
 	let mut ret = Vec::new();
 	let mut context = InputContext::new(input);
 	loop {
-		let token_opt = context.next_token();
-		match token_opt {
-			Some(token) => ret.push(token),
-			None => break
+		let token_res = context.next_token();
+		match token_res {
+			Ok(token) => ret.push(token),
+			Err(err) => {
+				match err {
+					TokenError::Nothing => (),
+					_ => { return Err(err); }
+				}
+				break;
+			}
 		}
 	}
-	ret
+	Ok(ret)
 }
 
 struct Node {
@@ -134,13 +168,13 @@ impl TreeArena {
 }
 
 enum EvalError {
-	DivideByZero
+	Nv(num_val::Error)
 }
 
 impl EvalError {
 	fn to_string(&self) -> String {
 		match *self {
-			EvalError::DivideByZero => "divide by zero".into()
+			EvalError::Nv(ref nv_error) => nv_error.to_string()
 		}
 	}
 }
@@ -215,31 +249,20 @@ impl Tree {
 		};
 
 		let nv_result = match node.token {
-			Token::Nothing => NumVal::zero(),
-			Token::Number(ref nv) => *nv,
-			Token::ParOpen => NumVal::zero(),
-			Token::ParClose => NumVal::zero(),
+			Token::Nothing => Ok(NumVal::zero()),
+			Token::Number(ref nv) => Ok(*nv),
+			Token::ParOpen => Ok(NumVal::zero()),
+			Token::ParClose => Ok(NumVal::zero()),
 			Token::Add => NumVal::add(val_left, val_right),
 			Token::Sub => NumVal::sub(val_left, val_right),
 			Token::Mul => NumVal::mul(val_left, val_right),
-			Token::Div => {
-				if val_right.is_zero() {
-					return Err(EvalError::DivideByZero)
-				}
-				else {
-					NumVal::div(val_left, val_right)
-				}
-			},
-			Token::Mod => {
-				if val_right.is_zero() {
-					return Err(EvalError::DivideByZero)
-				}
-				else {
-					NumVal::div_mod(val_left, val_right)
-				}
-			},
+			Token::Div => NumVal::div(val_left, val_right),
+			Token::Mod => NumVal::div_mod(val_left, val_right),
 		};
-		Ok(nv_result)
+		if nv_result.is_err() {
+			return Err(EvalError::Nv(nv_result.unwrap_err()));
+		}
+		Ok(nv_result.unwrap())
 	}
 
 	fn eval(&self) -> Result<NumVal, EvalError> {
@@ -443,7 +466,11 @@ fn make_tree(mut tokens: Vec<Token>) -> Result<Tree, String> {
 }
 
 pub fn eval_input(input: &str) -> String {
-	let tokens = tokenize(input);
+	let tokens_res = tokenize(input);
+	let tokens = match tokens_res {
+		Ok(tokens) => tokens,
+		Err(err) => { return err.to_string(); }
+	};
 	/*
 	print!("{} tokens: ", tokens.len());
 	for t in &tokens {
