@@ -27,7 +27,7 @@ fn find_bounds(digits: &[u8]) -> (usize, usize) {
 	}
 
 	let mut stop_at = digits.len();
-	while stop_at > start_at {
+	while stop_at > FRAC_LEN + 1 {
 		if digits[stop_at-1] != 0 {
 			break;
 		}
@@ -56,6 +56,8 @@ impl NumVal {
 		}
 	}
 
+	// for testing
+	#[allow(dead_code)]
 	pub fn from_i32(val: i32) -> NumVal {
 		let mut ret = NumVal::zero();
 		let mut index = FRAC_LEN;
@@ -99,6 +101,7 @@ impl NumVal {
 				let c = char::from_u32(48 + x).unwrap();
 				ret.push(c);
 			}
+
 			if start_at < FRAC_LEN {
 				ret.push('.');
 				for i in (start_at..FRAC_LEN).rev() {
@@ -334,33 +337,75 @@ impl NumVal {
 		}
 	}
 
-	pub fn parse(input_chars: &mut std::iter::Peekable<std::str::Chars>, c_first: char) -> Option<NumVal> {
-		let mut val = 0;
-		val += c_first.to_digit(10).unwrap() as i32;
+	// Parses a positive number
+	pub fn parse_chars(input_chars: &mut std::iter::Peekable<std::str::Chars>) -> Option<NumVal> {
+		let c = {
+			let c_opt = input_chars.peek();
+			if c_opt.is_none() {
+				return None;
+			}
+			let c = c_opt.unwrap();
+			*c
+		};
+
+		// Check that the character is a digit
+		let digit32 = {
+			if !c.is_digit(10) {
+				return None;
+			}
+			c.to_digit(10).unwrap() as u8
+		};
+		input_chars.next();
+		
+		let mut val = NumVal::zero();
+		val.digits[FRAC_LEN] = digit32;
+
+		let mut dot_found = false;
+		let mut frac_index = FRAC_LEN - 1;
 		loop {
-			let val2 = {
+			let c = {
 				let c_opt = input_chars.peek();
 				if c_opt.is_none() {
-					None
+					break;
+				}
+				let c = c_opt.unwrap();
+				*c
+			};
+
+			if c == '.' {
+				if dot_found {
+					// Already found, exit
+					break;
+				}
+				dot_found = true;
+			}
+			else {
+				let digit32 = {
+					if !c.is_digit(10) {
+						break;
+					}
+					c.to_digit(10).unwrap() as u8
+				};
+
+				if !dot_found {
+					val.shift_right();
+					val.digits[FRAC_LEN] = digit32;
 				}
 				else {
-					let c = c_opt.unwrap();
-					if c.is_digit(10) {
-						Some(c.to_digit(10).unwrap() as i32)
-					}
-					else {
-						None
-					}
+					val.digits[frac_index] = digit32;
+					frac_index -= 1;
 				}
-			};
-			if val2.is_none() {
-				break;
 			}
-			val *= 10;
-			val += val2.unwrap();
 			input_chars.next();
 		}
-		Some(NumVal::from_i32(val))
+		Some(val)
+	}
+
+	// for testing
+	#[allow(dead_code)]
+	pub fn parse_str(arg: &str) -> Option<NumVal> {
+		let mut ic = arg.chars().peekable();
+		NumVal::parse_chars(&mut ic)
 	}
 }
 
@@ -382,6 +427,10 @@ fn test_add() {
 	assert_eq!("-3", NumVal::add(NumVal::from_i32(-1), NumVal::from_i32(-2)).to_string());
 	assert_eq!("1",  NumVal::add(NumVal::from_i32(-1), NumVal::from_i32(2)).to_string());
 	assert_eq!("-1", NumVal::add(NumVal::from_i32(1),  NumVal::from_i32(-2)).to_string());
+
+	let mut less_than_zero = NumVal::zero();
+	less_than_zero.digits[FRAC_LEN-1] = 1;
+	assert_eq!("0.1", less_than_zero.to_string());
 }
 
 #[test]
@@ -424,4 +473,11 @@ fn test_div_mod() {
 	assert_eq!("4",  NumVal::div_mod(NumVal::from_i32(-100),  NumVal::from_i32(48)).to_string());
 	assert_eq!("-4",  NumVal::div_mod(NumVal::from_i32(100),  NumVal::from_i32(-48)).to_string());
 	assert_eq!("-4",  NumVal::div_mod(NumVal::from_i32(-100),  NumVal::from_i32(-48)).to_string());
+}
+
+#[test]
+fn test_parse() {
+	let nv = NumVal::parse_str("1.02");
+	assert!(nv.is_some());
+	assert_eq!("1.02", nv.unwrap().to_string());
 }

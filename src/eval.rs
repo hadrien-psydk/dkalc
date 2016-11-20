@@ -47,22 +47,19 @@ impl<'a> InputContext<'a> {
 	fn next_token(&mut self) -> Option<Token> {
 		let ret;
 		loop {
+			let num_opt = NumVal::parse_chars(&mut self.input_chars);
+			if num_opt.is_some() {
+				ret = Some(Token::Number(num_opt.unwrap()));
+				break;
+			}
+
 			let c_opt = self.input_chars.next();
 			if c_opt.is_none() {
 				ret = None;
 				break;
 			}
 			let c = c_opt.unwrap();
-			if c.is_digit(10) {
-				let num_opt = NumVal::parse(&mut self.input_chars, c);
-				if num_opt.is_none() {
-					ret = None;
-					break;
-				}
-				ret = Some(Token::Number(num_opt.unwrap()));
-				break;
-			}
-			else if c == '(' {
+			if c == '(' {
 				ret = Some(Token::ParOpen);
 				break;
 			}
@@ -290,7 +287,7 @@ fn parse_factor(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 			// Wants number
 			let op_next = match tg.next() {
 				Some(op_next) => op_next,
-				None => { return ParseResult::Fail("parse_factor error: missing number".into()); }
+				None => { return ParseResult::Fail("missing number".into()); }
 			};
 			match *op_next {
 				Token::Number(nv) => {
@@ -299,7 +296,7 @@ fn parse_factor(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 				},
 				_ => {
 					return ParseResult::Fail(format!(
-						"parse_factor error: expected number instead of {}", op_next.to_string()));
+						"expected number instead of {}", op_next.to_string()));
 				}
 			}
 		}
@@ -309,7 +306,7 @@ fn parse_factor(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 		},
 		Token::ParOpen => (),
 		_ => {
-			return ParseResult::Fail(format!("parse_factor error: found {}", op.to_string()));
+			return ParseResult::Fail(format!("unexpected {}", op.to_string()));
 		}
 	}
 
@@ -320,14 +317,14 @@ fn parse_factor(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 	let op2 = match tg.next() {
 		Some(op2) => op2,
 		None => {
-			return ParseResult::Fail(format!("parse_factor error: missing ')'"));
+			return ParseResult::Fail(format!("missing ')'"));
 		}
 	};
 
 	match *op2 {
 		Token::ParClose => (),
 		_ => {
-			return ParseResult::Fail(format!("parse_factor error: expected ')', found: {}", op2.to_string()));
+			return ParseResult::Fail(format!("expected ')', found: {}", op2.to_string()));
 		}
 	}
 	return inside;
@@ -350,7 +347,7 @@ fn parse_term_right(tg: &mut TokenGetter, arena: &mut TreeArena, mut root_id: us
 		tg.next();
 
 		let right_id = match parse_factor(tg, arena) {
-			ParseResult::None => return ParseResult::Fail("parse_term_right: missing factor".into()),
+			ParseResult::None => return ParseResult::Fail("missing factor".into()),
 			ParseResult::Fail(err) => return ParseResult::Fail(err),
 			ParseResult::Some(right_id) => right_id
 		};
@@ -392,8 +389,6 @@ fn parse_expression_right(tg: &mut TokenGetter, arena: &mut TreeArena, mut root_
 			None => { break; }
 		};
 
-		//println!("parse_expression_right: matching {}", op.to_string());
-
 		match *op {
 			Token::Add | Token::Sub => (),
 			_ => { break; }
@@ -401,7 +396,7 @@ fn parse_expression_right(tg: &mut TokenGetter, arena: &mut TreeArena, mut root_
 		tg.next();
 
 		let right_id = match parse_term(tg, arena) {
-			ParseResult::None => return ParseResult::Fail("parse_expression_right: missing term".into()),
+			ParseResult::None => return ParseResult::Fail("missing term".into()),
 			ParseResult::Fail(err) => return ParseResult::Fail(err),
 			ParseResult::Some(right_id) => right_id
 		};
