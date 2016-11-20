@@ -113,8 +113,8 @@ fn tokenize(input: &str) -> Vec<Token> {
 
 struct Node {
     token: Token,
-    left: Option<usize>,
-    right: Option<usize>
+    left_id: Option<usize>,
+    right_id: Option<usize>
 }
 
 struct TreeArena {
@@ -125,12 +125,13 @@ impl TreeArena {
 	fn new_with_size(size: usize) -> TreeArena {
 		TreeArena { nodes: Vec::with_capacity(size) }
 	}
-	fn push_single(&mut self, token: Token) -> usize {
-		self.nodes.push( Node { token: token, left: None, right: None } );
-		self.nodes.len() - 1
+	fn alloc_node(&mut self, token: Token) -> (&mut Node, usize) {
+		self.nodes.push( Node { token: token, left_id: None, right_id: None } );
+		let id = self.nodes.len() - 1;
+		(&mut self.nodes[id], id)
 	}
-	fn push_dual(&mut self, token: Token, left: usize, right: usize) -> usize {
-		self.nodes.push( Node { token: token, left: Some(left), right: Some(right) } );
+	fn alloc_leaf(&mut self, token: Token) -> usize {
+		self.nodes.push( Node { token: token, left_id: None, right_id: None } );
 		self.nodes.len() - 1
 	}
 }
@@ -149,7 +150,7 @@ impl EvalError {
 
 struct Tree {
     arena: TreeArena,
-	root: usize,
+	root_id: usize,
 }
 
 impl Tree {
@@ -163,7 +164,7 @@ impl Tree {
 		canvas.do_str_fix(&node.token.to_string());
 		canvas.down();
 
-		if node.left.is_some() {
+		if node.left_id.is_some() {
 			let state0 = canvas.get_state();
 			canvas.do_str("\u{2534}");
 			canvas.left(pad/2+2);
@@ -175,18 +176,18 @@ impl Tree {
 			canvas.set_state(state1);
 
 			canvas.down();
-			self.draw_node(node.left.unwrap(), pad/2-1, canvas);
+			self.draw_node(node.left_id.unwrap(), pad/2-1, canvas);
 			canvas.set_state(state0);
 		}
 
-		if node.right.is_some() {
+		if node.right_id.is_some() {
 			let state0 = canvas.get_state();
 			canvas.do_str("\u{2534}");
 
 			canvas.do_str_n("\u{2500}", pad/2);
 			canvas.do_str_fix("\u{2510}");
 			canvas.down();
-			self.draw_node(node.right.unwrap(), pad/2, canvas);
+			self.draw_node(node.right_id.unwrap(), pad/2, canvas);
 			canvas.set_state(state0);
 		}
 	}
@@ -195,22 +196,22 @@ impl Tree {
 		let mut canvas = TextCanvas::new(64, 64);
 		let pad = 16;
 		canvas.right(pad);
-		self.draw_node(self.root, pad, &mut canvas);
+		self.draw_node(self.root_id, pad, &mut canvas);
 		canvas.to_string()
 	}
 
 	fn eval_node(&self, node_id: usize) -> Result<NumVal, EvalError> {
 		let node = self.get_node(node_id);
 		
-		let val_left = if let Some(left) = node.left {
-			try!(self.eval_node(left))
+		let val_left = if let Some(left_id) = node.left_id {
+			try!(self.eval_node(left_id))
 		}
 		else {
 			NumVal::zero()
 		};
 
-		let val_right = if let Some(right) = node.right {
-			try!(self.eval_node(right))
+		let val_right = if let Some(right_id) = node.right_id {
+			try!(self.eval_node(right_id))
 		}
 		else {
 			NumVal::zero()
@@ -245,7 +246,7 @@ impl Tree {
 	}
 
 	fn eval(&self) -> Result<NumVal, EvalError> {
-		self.eval_node(self.root)
+		self.eval_node(self.root_id)
 	}
 }
 
@@ -293,7 +294,7 @@ fn parse_factor(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 			};
 			match *op_next {
 				Token::Number(nv) => {
-					let node_id = arena.push_single(Token::Number(nv.negate()));
+					let node_id = arena.alloc_leaf(Token::Number(nv.negate()));
 					return ParseResult::Some(node_id);
 				},
 				_ => {
@@ -303,7 +304,7 @@ fn parse_factor(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 			}
 		}
 		Token::Number(nv) => {
-			let node_id = arena.push_single(Token::Number(nv));
+			let node_id = arena.alloc_leaf(Token::Number(nv));
 			return ParseResult::Some(node_id);
 		},
 		Token::ParOpen => (),
@@ -335,40 +336,30 @@ fn parse_factor(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 // { * F }*
 // { / F }*
 // { % F }*
-fn parse_term_right(tg: &mut TokenGetter, arena: &mut TreeArena, left: usize) -> ParseResult {
-	let op = match tg.peek() {
-		Some(op) => op,
-		None => { return ParseResult::None; }
-	};
+fn parse_term_right(tg: &mut TokenGetter, arena: &mut TreeArena, mut root_id: usize) -> ParseResult {
+	loop {
+		let op = match tg.peek() {
+			Some(op) => op,
+			None => { break; }
+		};
 
-	match *op {
-		Token::Mul | Token::Div | Token::Mod => (),
-		_ => {
-			return ParseResult::None;
+		match *op {
+			Token::Mul | Token::Div | Token::Mod => (),
+			_ => { break; }
 		}
-	}
-	tg.next();
+		tg.next();
 
-	match parse_factor(tg, arena) {
-		ParseResult::None => ParseResult::Fail("parse_term_right: missing factor".into()),
-		ParseResult::Fail(err) => ParseResult::Fail(err),
-		ParseResult::Some(right) => {
-			let right2_pr = match parse_term_right(tg, arena, right) {
-				ParseResult::None => ParseResult::Some(right),
-				ParseResult::Fail(err) => ParseResult::Fail(err),
-				ParseResult::Some(right2) => ParseResult::Some(right2)
-			};
-
-			if let ParseResult::Some(right2) = right2_pr {
-				let op2 = (*op).clone();
-				let node_id = arena.push_dual(op2, left, right2);
-				ParseResult::Some(node_id)
-			}
-			else {
-				right2_pr
-			}
-		}
+		let right_id = match parse_factor(tg, arena) {
+			ParseResult::None => return ParseResult::Fail("parse_term_right: missing factor".into()),
+			ParseResult::Fail(err) => return ParseResult::Fail(err),
+			ParseResult::Some(right_id) => right_id
+		};
+		let (mut node, node_id) = arena.alloc_node((*op).clone());
+		node.left_id = Some(root_id);
+		node.right_id = Some(right_id);
+		root_id = node_id;
 	}
+	ParseResult::Some(root_id)
 }
 
 // T -> F { * F }*
@@ -379,13 +370,13 @@ fn parse_term(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 	match parse_factor(tg, arena) {
 		ParseResult::None => ParseResult::None,
 		ParseResult::Fail(err) => ParseResult::Fail(err),
-		ParseResult::Some(left) =>  {
+		ParseResult::Some(root_id) =>  {
 			// { * F }
-			match parse_term_right(tg, arena, left) {
-				ParseResult::None => ParseResult::Some(left),
+			match parse_term_right(tg, arena, root_id) {
+				ParseResult::None => ParseResult::Some(root_id),
 				ParseResult::Fail(err) => ParseResult::Fail(err),
-				ParseResult::Some(right) =>  {
-					ParseResult::Some(right)
+				ParseResult::Some(root_id) =>  {
+					ParseResult::Some(root_id)
 				}
 			}
 		}
@@ -394,42 +385,33 @@ fn parse_term(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 
 // { - T }*
 // { + T }*
-fn parse_expression_right(tg: &mut TokenGetter, arena: &mut TreeArena, left: usize) -> ParseResult {
-	let op = match tg.peek() {
-		Some(op) => op,
-		None => { return ParseResult::None; }
-	};
+fn parse_expression_right(tg: &mut TokenGetter, arena: &mut TreeArena, mut root_id: usize) -> ParseResult {
+	loop {
+		let op = match tg.peek() {
+			Some(op) => op,
+			None => { break; }
+		};
 
-	//println!("parse_expression_right: matching {}", op.to_string());
+		//println!("parse_expression_right: matching {}", op.to_string());
 
-	match *op {
-		Token::Add | Token::Sub => (),
-		_ => {
-			return ParseResult::None;
+		match *op {
+			Token::Add | Token::Sub => (),
+			_ => { break; }
 		}
-	}
-	tg.next();
+		tg.next();
 
-	match parse_term(tg, arena) {
-		ParseResult::None => ParseResult::Fail("parse_expression_right: missing term".into()),
-		ParseResult::Fail(err) => ParseResult::Fail(err),
-		ParseResult::Some(right) => {
-			let right2_pr = match parse_expression_right(tg, arena, right) {
-				ParseResult::None => ParseResult::Some(right),
-				ParseResult::Fail(err) => ParseResult::Fail(err),
-				ParseResult::Some(right2) => ParseResult::Some(right2)
-			};
+		let right_id = match parse_term(tg, arena) {
+			ParseResult::None => return ParseResult::Fail("parse_expression_right: missing term".into()),
+			ParseResult::Fail(err) => return ParseResult::Fail(err),
+			ParseResult::Some(right_id) => right_id
+		};
 
-			if let ParseResult::Some(right2) = right2_pr {
-				let op2 = (*op).clone();
-				let node_id = arena.push_dual(op2, left, right2);
-				ParseResult::Some(node_id)
-			}
-			else {
-				right2_pr
-			}
-		}
+		let (mut node, node_id) = arena.alloc_node((*op).clone());
+		node.left_id = Some(root_id);
+		node.right_id = Some(right_id);
+		root_id = node_id;
 	}
+	ParseResult::Some(root_id)
 }
 
 // X -> T { - T }*
@@ -439,28 +421,29 @@ fn parse_expression(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult 
 	match parse_term(tg, arena) {
 		ParseResult::None => ParseResult::None,
 		ParseResult::Fail(err) => ParseResult::Fail(err),
-		ParseResult::Some(left) => { 
+		ParseResult::Some(root_id) => { 
 			// { - T }
-			match parse_expression_right(tg, arena, left) {
-				ParseResult::None => ParseResult::Some(left),
+			match parse_expression_right(tg, arena, root_id) {
+				ParseResult::None => ParseResult::Some(root_id),
 				ParseResult::Fail(err) => ParseResult::Fail(err),
-				ParseResult::Some(right) => {
-					ParseResult::Some(right)
+				ParseResult::Some(root_id) => {
+					ParseResult::Some(root_id)
 				}
 			}
 		}
 	}
 }
 
+// creates the evaluation tree from the list of tokens
 fn make_tree(mut tokens: Vec<Token>) -> Result<Tree, String> {
 	let mut arena = TreeArena::new_with_size(tokens.len());
 	let mut tg = TokenGetter { tokens: &mut tokens, index: 0 };
-	let root = match parse_expression(&mut tg, &mut arena) {
-		ParseResult::None => arena.push_single(Token::Nothing),
-		ParseResult::Some(root) => root,
+	let root_id = match parse_expression(&mut tg, &mut arena) {
+		ParseResult::None => arena.alloc_leaf(Token::Nothing),
+		ParseResult::Some(root_id) => root_id,
 		ParseResult::Fail(err) => return Err(err),
 	};
-	let tree = Tree { arena: arena, root: root };
+	let tree = Tree { arena: arena, root_id: root_id };
 	Ok(tree)
 }
 
@@ -489,7 +472,7 @@ pub fn eval_input(input: &str) -> String {
 		Err(err) => err.into()
 	}
 }
-/*
+
 #[test]
 fn test_eval() {
 	assert_eq!("20", eval_input("8/2 + 1 + 3*5"));
@@ -497,4 +480,8 @@ fn test_eval() {
 	assert_eq!("2", eval_input("7%5"));
 	assert_eq!("-2", eval_input("-3+1"));
 }
-*/
+
+#[test]
+fn test_order() {
+	assert_eq!("0", eval_input("4+2-3-3"));
+}

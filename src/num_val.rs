@@ -7,6 +7,8 @@ const FRAC_LEN: usize = 3; // number of digits used for the fractional part
 const MAX_LEN: usize = FRAC_LEN + INT_LEN;
 const MAX_LEN_MUL: usize = MAX_LEN*2+1; // Max len for multiplication result
 
+// for debugging
+#[allow(dead_code)]
 fn print_digits(digits: &[u8]) {
 	print!("{}", digits[0]);
 	for i in 1..digits.len() {
