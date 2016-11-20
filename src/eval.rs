@@ -1,146 +1,8 @@
-use std;
 use text_canvas::TextCanvas;
 use num_val;
 use num_val::NumVal;
-
-#[allow(dead_code)]
-#[derive(Copy,Clone)]
-enum Token {
-	Nothing,
-	Number(NumVal),
-	ParOpen,
-	ParClose,
-	Add,
-	Sub,
-	Mul,
-	Div,
-	Mod
-}
-
-
-impl Token {
-	fn to_string(&self) -> std::borrow::Cow<'static, str> {
-		match *self {
-			Token::Nothing => "_".into(),
-			Token::Number(ref nv) => nv.to_string().into(),
-			Token::ParOpen => "(".into(),
-			Token::ParClose => ")".into(),
-			Token::Add => "+".into(),
-			Token::Sub => "-".into(),
-			Token::Mul => "*".into(),
-			Token::Div => "/".into(),
-			Token::Mod => "%".into(),
-		}
-	}
-}
-
-enum TokenError {
-	Nothing, // End of string
-	BadChar(char),
-	BadNum(num_val::Error)
-}
-
-impl TokenError {
-	fn to_string(&self) -> String {
-		match *self {
-			TokenError::Nothing => "".into(),
-			TokenError::BadChar(c) => format!("bad char: '{}'", c),
-			TokenError::BadNum(ref nverr) => nverr.to_string()
-		}
-	}
-}
-
-struct InputContext<'a> {
-	input_chars: std::iter::Peekable<std::str::Chars<'a>>
-}
-
-impl<'a> InputContext<'a> {
-	fn new(input: &str) -> InputContext {
-		let ic = input.chars().peekable();
-		InputContext { input_chars: ic }
-	}
-	
-	fn next_token(&mut self) -> Result<Token, TokenError> {
-		let ret;
-		loop {
-			let num_res = NumVal::parse_chars(&mut self.input_chars);
-			match num_res {
-				Ok(num) => {
-					ret = Ok(Token::Number(num));
-					break;
-				},
-				Err(err) => {
-					match err {
-						num_val::Error::Nothing => (), // Not a problem
-						_ => { return Err(TokenError::BadNum(err)); }
-					}
-				}
-			}
-
-			let c_opt = self.input_chars.next();
-			if c_opt.is_none() {
-				ret = Err(TokenError::Nothing);
-				break;
-			}
-			let c = c_opt.unwrap();
-			if c == '(' {
-				ret = Ok(Token::ParOpen);
-				break;
-			}
-			else if c == ')' {
-				ret = Ok(Token::ParClose);
-				break;
-			}
-			else if c == '+' {
-				ret = Ok(Token::Add);
-				break;
-			}
-			else if c == '-' {
-				ret = Ok(Token::Sub);
-				break;
-			}
-			else if c == '*' {
-				ret = Ok(Token::Mul);
-				break;
-			}
-			else if c == '/' {
-				ret = Ok(Token::Div);
-				break;
-			}
-			else if c == '%' {
-				ret = Ok(Token::Mod);
-				break;
-			}
-			else if c == ' ' {
-				// continue
-			}
-			else
-			{
-				return Err(TokenError::BadChar(c));
-			}
-		}
-		ret
-	}
-}
-
-fn tokenize(input: &str) -> Result<Vec<Token>, TokenError> {
-	let mut ret = Vec::new();
-	let mut context = InputContext::new(input);
-	loop {
-		let token_res = context.next_token();
-		match token_res {
-			Ok(token) => ret.push(token),
-			Err(err) => {
-				match err {
-					TokenError::Nothing => (),
-					_ => { return Err(err); }
-				}
-				break;
-			}
-		}
-	}
-	Ok(ret)
-}
+use token;
+use token::Token;
 
 struct Node {
     token: Token,
@@ -466,7 +328,7 @@ fn make_tree(mut tokens: Vec<Token>) -> Result<Tree, String> {
 }
 
 pub fn eval_input(input: &str) -> String {
-	let tokens_res = tokenize(input);
+	let tokens_res = token::tokenize(input);
 	let tokens = match tokens_res {
 		Ok(tokens) => tokens,
 		Err(err) => { return err.to_string(); }

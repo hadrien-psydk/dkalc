@@ -6,6 +6,7 @@ use gtk::{Window, WindowType, Entry, Label, Box, Orientation, Menu, MenuBar, Men
 mod text_canvas;
 mod eval;
 mod num_val;
+mod token;
 
 fn main() {
 	//println!("{}", eval::eval_input("4+2-3-3"));
