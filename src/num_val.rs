@@ -189,12 +189,11 @@ impl NumVal {
 	fn sub_u(nv0: NumVal, nv1: NumVal) -> NumVal {
 		let mut ret = NumVal::zero();
 		let swap = NumVal::compare(nv0, nv1) == -1;
+		let (nv_left, nv_right) = if swap { (nv1, nv0) } else { (nv0, nv1) }; 
 		let mut carry = 0;
 		for i in 0..MAX_LEN {
-			let x = nv0.digits[i];
-			let y = nv1.digits[i];
-			let (x, y) = if swap { (y, x) } else { (x, y) };
-
+			let x = nv_left.digits[i];
+			let y = nv_right.digits[i];
 			let z;
 			if x >= (y + carry) {
 				z = x - (y + carry);
@@ -256,7 +255,7 @@ impl NumVal {
 			return Ok(NumVal::sub_u(nv1, nv0));
 		}
 		else if !nv0.neg && nv1.neg {
-			let mut ret = match NumVal::add_u(nv0, nv1) {
+			let ret = match NumVal::add_u(nv0, nv1) {
 				Ok(nv) => nv,
 				Err(err) => { return Err(err); }
 			};
@@ -266,6 +265,8 @@ impl NumVal {
 		return Ok(NumVal::sub_u(nv0, nv1));
 	}
 
+	// Multiplies one NumVal with one single digit
+	// Returns the result as a list of digits that can be shifted 
 	fn mul_u_digit(nv0: &NumVal, digit: u8, shift: usize) -> [u8;MAX_LEN_MUL] {
 		let mut line = [0u8;MAX_LEN_MUL];
 		let mut carry = 0;
@@ -277,37 +278,34 @@ impl NumVal {
 		line
 	}
 
-	fn mul_u(nv0: NumVal, nv1: NumVal) -> NumVal {
+	fn mul_u(nv0: NumVal, nv1: NumVal) -> Result<NumVal, Error> {
 		let mut result = [0u8;MAX_LEN_MUL];
 		for i in 0..MAX_LEN {
 			let line = NumVal::mul_u_digit(&nv0, nv1.digits[i], i);
-			NumVal::accumulate_u(&line, &mut result);
+			try!(NumVal::accumulate_u(&line, &mut result)); // Cannot overflow actually
 		}
 		let mut ret = NumVal::zero();
+		// Check overflow
+		for i in FRAC_LEN+MAX_LEN..MAX_LEN_MUL {
+			if result[i] != 0 {
+				return Err(Error::OpOverflow);
+			}
+		}
 		ret.digits.copy_from_slice(&result[FRAC_LEN..FRAC_LEN+MAX_LEN]);
-		ret
+		Ok(ret)
 	}
 
 	pub fn mul(nv0: NumVal, nv1: NumVal) -> Result<NumVal, Error> {
-		if nv0.neg {
-			if nv1.neg {
-				return Ok(NumVal::mul_u(nv0, nv1));
-			}
-			else {
-				let mut ret = NumVal::mul_u(nv0, nv1);
-				ret.neg = true;
-				return Ok(ret);
-			}
+		if nv0.neg == nv1.neg {
+			return NumVal::mul_u(nv0, nv1);
 		}
 		else {
-			if nv1.neg {
-				let mut ret = NumVal::mul_u(nv0, nv1);
-				ret.neg = true;
-				return Ok(ret);
-			}
-			else {
-				return Ok(NumVal::mul_u(nv0, nv1));
-			}
+			let mut ret = match NumVal::mul_u(nv0, nv1) {
+				Ok(nv) => nv,
+				Err(err) => { return Err(err); }
+			};
+			ret.neg = true;
+			return Ok(ret);
 		}
 	}
 
@@ -525,6 +523,21 @@ fn test_mul() {
 	assert_eq!("-28",  NumVal::mul(NumVal::from_i32(-4),  NumVal::from_i32(7)).unwrap().to_string());
 	assert_eq!("-28",  NumVal::mul(NumVal::from_i32(4),  NumVal::from_i32(-7)).unwrap().to_string());
 	assert_eq!("28",  NumVal::mul(NumVal::from_i32(-4),  NumVal::from_i32(-7)).unwrap().to_string());
+}
+
+#[test]
+fn test_mul_overflow() {
+	let mut arg = String::new();
+	for _ in 0..INT_LEN {
+		arg.push('9');
+	}
+	let res = NumVal::mul(NumVal::parse_str(&arg).unwrap(),  NumVal::parse_str(&arg).unwrap());
+	assert!(res.is_err());
+	let expected_err = match res.unwrap_err() {
+		Error::OpOverflow => true,
+		_ => false
+	};
+	assert!(expected_err);
 }
 
 #[test]
