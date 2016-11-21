@@ -39,21 +39,23 @@ fn find_bounds(digits: &[u8]) -> (usize, usize) {
 #[derive(Debug)]
 pub enum Error {
 	// parsing
-	Nothing,
-	IntPartOverflow,
-	FracPartOverflow,
+	ParseNothing,
+	ParseIntPartOverflow,
+	ParseFracPartOverflow,
 
 	// operations
-	DivideByZero,
+	OpDivideByZero,
+	OpOverflow
 }
 
 impl Error {
 	pub fn to_string(&self) -> String {
 		match *self {
-			Error::Nothing => "".to_string(),
-			Error::IntPartOverflow => "too many digits".to_string(),
-			Error::FracPartOverflow => "too many decimals".to_string(),
-			Error::DivideByZero => "divide by zero".to_string()
+			Error::ParseNothing => "".to_string(),
+			Error::ParseIntPartOverflow => "too many digits".to_string(),
+			Error::ParseFracPartOverflow => "too many decimals".to_string(),
+			Error::OpDivideByZero => "divide by zero".to_string(),
+			Error::OpOverflow => "overflow".to_string()
 		}
 	}
 }
@@ -159,7 +161,7 @@ impl NumVal {
 	// add arbitrary length but consistent among all arguments
 	// digits0: digits to add to digits1
 	// digits1: existing values
-	fn accumulate_u(digits0: &[u8], digits1: &mut [u8]) {
+	fn accumulate_u(digits0: &[u8], digits1: &mut [u8]) -> Result<(), Error> {
 		let mut carry = 0;
 		for i in 0..digits0.len() {
 			let z = digits0[i] + digits1[i] + carry;
@@ -167,13 +169,19 @@ impl NumVal {
 			let z2 = z % 10;
 			digits1[i] = z2;
 		}
+		if carry != 0 {
+			Err(Error::OpOverflow)
+		}
+		else {
+			Ok(())
+		}
 	}
 
 	// add without looking at the negative state of the inputs
-	fn add_u(nv0: NumVal, nv1: NumVal) -> NumVal {
+	fn add_u(nv0: NumVal, nv1: NumVal) -> Result<NumVal, Error> {
 		let mut nv1_digits = nv1.digits;
-		NumVal::accumulate_u(&nv0.digits, &mut nv1_digits);
-		NumVal { neg: false, digits: nv1_digits }
+		try!(NumVal::accumulate_u(&nv0.digits, &mut nv1_digits));
+		Ok(NumVal { neg: false, digits: nv1_digits })
 	}
 
 	// subtract without looking at the negative state of the inputs
@@ -204,10 +212,13 @@ impl NumVal {
 
 	pub fn add(nv0: NumVal, nv1: NumVal) -> Result<NumVal, Error> {
 		if !nv0.neg && !nv1.neg {
-			return Ok(NumVal::add_u(nv0, nv1));
+			return NumVal::add_u(nv0, nv1);
 		}
 		else if nv0.neg && nv1.neg {
-			let mut ret = NumVal::add_u(nv0, nv1);
+			let mut ret = match NumVal::add_u(nv0, nv1) {
+				Ok(nv) => nv,
+				Err(err) => { return Err(err); }
+			};
 			ret.neg = true;
 			return Ok(ret);
 		}
@@ -234,7 +245,10 @@ impl NumVal {
 
 	pub fn sub(nv0: NumVal, nv1: NumVal) -> Result<NumVal, Error> {
 		if nv0.neg && !nv1.neg {
-			let mut ret = NumVal::add_u(nv0, nv1);
+			let mut ret = match NumVal::add_u(nv0, nv1) {
+				Ok(nv) => nv,
+				Err(err) => { return Err(err); }
+			};
 			ret.neg = true;
 			return Ok(ret);
 		}
@@ -242,7 +256,11 @@ impl NumVal {
 			return Ok(NumVal::sub_u(nv1, nv0));
 		}
 		else if !nv0.neg && nv1.neg {
-			return Ok(NumVal::add_u(nv0, nv1));
+			let mut ret = match NumVal::add_u(nv0, nv1) {
+				Ok(nv) => nv,
+				Err(err) => { return Err(err); }
+			};
+			return Ok(ret);
 		}
 		// !nv0.neg && !nv1.neg
 		return Ok(NumVal::sub_u(nv0, nv1));
@@ -333,7 +351,7 @@ impl NumVal {
 
 	pub fn div(nv0: NumVal, nv1: NumVal) -> Result<NumVal, Error> {
 		if nv1.is_zero() {
-			return Err(Error::DivideByZero);
+			return Err(Error::OpDivideByZero);
 		}
 
 		if nv0.neg {
@@ -362,7 +380,7 @@ impl NumVal {
 
 	pub fn div_mod(nv0: NumVal, nv1: NumVal) -> Result<NumVal, Error> {
 		if nv1.is_zero() {
-			return Err(Error::DivideByZero);
+			return Err(Error::OpDivideByZero);
 		}
 
 		if nv1.neg {
@@ -381,7 +399,7 @@ impl NumVal {
 		let c = {
 			let c_opt = input_chars.peek();
 			if c_opt.is_none() {
-				return Err(Error::Nothing); // No character
+				return Err(Error::ParseNothing); // No character
 			}
 			let c = c_opt.unwrap();
 			*c
@@ -390,7 +408,7 @@ impl NumVal {
 		// Check that the character is a digit
 		let digit32 = {
 			if !c.is_digit(10) {
-				return Result::Err(Error::Nothing);
+				return Result::Err(Error::ParseNothing);
 			}
 			c.to_digit(10).unwrap() as u8
 		};
@@ -429,7 +447,7 @@ impl NumVal {
 
 				if !dot_found {
 					if shift_count == INT_LEN {
-						return Err(Error::IntPartOverflow);
+						return Err(Error::ParseIntPartOverflow);
 					}
 					val.shift_right();
 					val.digits[FRAC_LEN] = digit32;
@@ -437,7 +455,7 @@ impl NumVal {
 				}
 				else {
 					if frac_index == 0 {
-						return Err(Error::FracPartOverflow);
+						return Err(Error::ParseFracPartOverflow);
 					}
 					frac_index -= 1;
 					val.digits[frac_index] = digit32;
@@ -466,6 +484,21 @@ fn test_add() {
 	let mut less_than_zero = NumVal::zero();
 	less_than_zero.digits[FRAC_LEN-1] = 1;
 	assert_eq!("0.1", less_than_zero.to_string());
+}
+
+#[test]
+fn test_add_overflow() {
+	let mut arg = String::new();
+	for _ in 0..INT_LEN {
+		arg.push('9');
+	}
+	let res = NumVal::add(NumVal::parse_str(&arg).unwrap(),  NumVal::parse_str(&arg).unwrap());
+	assert!(res.is_err());
+	let expected_err = match res.unwrap_err() {
+		Error::OpOverflow => true,
+		_ => false
+	};
+	assert!(expected_err);
 }
 
 #[test]

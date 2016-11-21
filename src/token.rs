@@ -69,7 +69,7 @@ impl<'a> InputContext<'a> {
 				},
 				Err(err) => {
 					match err {
-						num_val::Error::Nothing => (), // Not a problem
+						num_val::Error::ParseNothing => (), // Not a problem
 						_ => { return Err(Error::BadNum(err)); }
 					}
 				}
