@@ -64,9 +64,9 @@ fn main() {
 	gtk_box.pack_start(&entry, true, true, 0);
 
 	let css_provider = CssProvider::new();
-	let css = "#result { font: monospace 15; }";
+	let css = "#result { font-family: monospace; font-size: 15px; }";
 	if let Err(err) = css_provider.load_from_data(css) {
-		println!("{}", err);
+		println!("css_provider.load_from_data failed: {}", err);
 		return;
 	}
 	StyleContext::add_provider_for_screen(
