@@ -328,6 +328,10 @@ fn make_tree(mut tokens: Vec<Token>) -> Result<Tree, String> {
 }
 
 pub fn eval_input(input: &str) -> String {
+	eval_input_debug(input, false)
+}
+
+pub fn eval_input_debug(input: &str, debug: bool) -> String {
 	let tokens_res = token::tokenize(input);
 	let tokens = match tokens_res {
 		Ok(tokens) => tokens,
@@ -347,9 +351,14 @@ pub fn eval_input(input: &str) -> String {
 
 	match make_tree(tokens) {
 		Ok(tree) => {
-			println!("{}", tree.to_string());
+			if debug {
+				println!("{}", tree.to_string());
+			}
 			match tree.eval() {
-				Ok(nv) => nv.to_string(),
+				Ok(nv) => {
+					//println!("dbg: {:?}", nv);
+					nv.to_string()
+				},
 				Err(err) => err.to_string()
 			}
 		},

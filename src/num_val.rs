@@ -1,8 +1,8 @@
 use std;
 use std::char;
 
-const INT_LEN: usize = 6;  // number of digits used for the integer part
-const FRAC_LEN: usize = 3; // number of digits used for the fractional part
+const INT_LEN: usize = 20;  // number of digits used for the integer part
+const FRAC_LEN: usize = 20; // number of digits used for the fractional part
 
 const MAX_LEN: usize = FRAC_LEN + INT_LEN;
 const MAX_LEN_MUL: usize = MAX_LEN*2+1; // Max len for multiplication result
@@ -60,10 +60,10 @@ impl Error {
 	}
 }
 
-#[derive(Copy,Clone,Debug)]
+#[derive(Copy)]
 pub struct NumVal {
 	neg: bool,
-	digits: [u8;MAX_LEN], // little-endian. 1402.658 -> 0,0,0,...,8,5,6,2,0,4,1,..0
+	digits: [u8;MAX_LEN], // little-endian. 1402.658 -> 0,0,0,...,8,5,6, 2,0,4,1,0,0,...,0
 }
 
 struct DivRet {
@@ -77,8 +77,37 @@ impl std::fmt::Display for NumVal {
     }
 }
 
-impl NumVal {
+impl std::fmt::Debug for NumVal {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut ds = String::with_capacity(MAX_LEN+3);
+        for i in 0..FRAC_LEN {
+			let x = self.digits[i] as u32;
+			let c = char::from_u32(48 + x).unwrap();
+			ds.push(c);
+			if i < (FRAC_LEN - 1) {
+				ds.push(',');
+			}
+        }
+        ds.push_str(" . ");
+        for i in FRAC_LEN..MAX_LEN {
+			let x = self.digits[i] as u32;
+			let c = char::from_u32(48 + x).unwrap();
+			ds.push(c);
+			if i < (MAX_LEN - 1) {
+				ds.push(',');
+			}
+        }
+        write!(f, "neg: {} digits: {}", self.neg, ds)
+	}
+}
 
+impl Clone for NumVal {
+	fn clone(&self) -> NumVal {
+		*self
+	}
+}
+
+impl NumVal {
 	pub fn zero() -> NumVal {
 		NumVal {
 			neg: false,

@@ -8,6 +8,8 @@ mod eval;
 mod num_val;
 mod token;
 
+const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+
 fn main() {
 	//println!("{}", eval::eval_input("4+2-3-3"));
 	/*
@@ -88,7 +90,7 @@ fn main() {
         ad.set_website(Some("http://psydk.org"));
         ad.set_title("About dkalc");
 		ad.set_program_name("dkalc");
-		ad.set_version(Some("0.1.0"));
+		ad.set_version(Some(VERSION));
 		ad.set_license_type(License::Gpl20);
         ad.set_transient_for(Some(&window));
         ad.run();
