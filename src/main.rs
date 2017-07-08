@@ -5,7 +5,7 @@ use gtk::{Window, WindowType, Entry, Label, Box, Orientation, Menu, MenuBar, Men
 
 mod text_canvas;
 mod eval;
-mod num_val;
+mod big_dec;
 mod token;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
@@ -13,15 +13,15 @@ const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 fn main() {
 	//println!("{}", eval::eval_input("4+2-3-3"));
 	/*
-	println!("{}", num_val::BigDec::div(
-		num_val::BigDec::from_i32(100),
-		num_val::BigDec::from_i32(48)
+	println!("{}", big_dec::BigDec::div(
+		big_dec::BigDec::from_i32(100),
+		big_dec::BigDec::from_i32(48)
 		).to_string()
 	);
 
-	println!("{}", num_val::BigDec::div_mod(
-		num_val::BigDec::from_i32(100),
-		num_val::BigDec::from_i32(48)
+	println!("{}", big_dec::BigDec::div_mod(
+		big_dec::BigDec::from_i32(100),
+		big_dec::BigDec::from_i32(48)
 		).to_string()
 	);*/
 

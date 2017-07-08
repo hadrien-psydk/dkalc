@@ -1,6 +1,6 @@
 use std;
-use num_val;
-use num_val::BigDec;
+use big_dec;
+use big_dec::BigDec;
 
 #[allow(dead_code)]
 #[derive(Copy,Clone)]
@@ -35,7 +35,7 @@ impl Token {
 pub enum Error {
 	Nothing, // End of string
 	BadChar(char),
-	BadNum(num_val::Error)
+	BadNum(big_dec::Error)
 }
 
 impl Error {
@@ -69,7 +69,7 @@ impl<'a> InputContext<'a> {
 				},
 				Err(err) => {
 					match err {
-						num_val::Error::ParseNothing => (), // Not a problem
+						big_dec::Error::ParseNothing => (), // Not a problem
 						_ => { return Err(Error::BadNum(err)); }
 					}
 				}

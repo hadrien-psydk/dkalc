@@ -1,6 +1,6 @@
 use text_canvas::TextCanvas;
-use num_val;
-use num_val::BigDec;
+use big_dec;
+use big_dec::BigDec;
 use token;
 use token::Token;
 
@@ -30,7 +30,7 @@ impl TreeArena {
 }
 
 enum EvalError {
-	Nv(num_val::Error)
+	Nv(big_dec::Error)
 }
 
 impl EvalError {
