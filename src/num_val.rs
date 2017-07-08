@@ -61,23 +61,23 @@ impl Error {
 }
 
 #[derive(Copy)]
-pub struct NumVal {
+pub struct BigDec {
 	neg: bool,
 	digits: [u8;MAX_LEN], // little-endian. 1402.658 -> 0,0,0,...,8,5,6, 2,0,4,1,0,0,...,0
 }
 
 struct DivRet {
-	quotient: NumVal,
-	remainder: NumVal,
+	quotient: BigDec,
+	remainder: BigDec,
 }
 
-impl std::fmt::Display for NumVal {
+impl std::fmt::Display for BigDec {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.to_string())
     }
 }
 
-impl std::fmt::Debug for NumVal {
+impl std::fmt::Debug for BigDec {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let mut ds = String::with_capacity(MAX_LEN+3);
         for i in 0..FRAC_LEN {
@@ -101,15 +101,15 @@ impl std::fmt::Debug for NumVal {
 	}
 }
 
-impl Clone for NumVal {
-	fn clone(&self) -> NumVal {
+impl Clone for BigDec {
+	fn clone(&self) -> BigDec {
 		*self
 	}
 }
 
-impl NumVal {
-	pub fn zero() -> NumVal {
-		NumVal {
+impl BigDec {
+	pub fn zero() -> BigDec {
+		BigDec {
 			neg: false,
 			digits: [0;MAX_LEN]
 		}
@@ -117,8 +117,8 @@ impl NumVal {
 
 	// for testing
 	#[allow(dead_code)]
-	pub fn from_i32(val: i32) -> NumVal {
-		let mut ret = NumVal::zero();
+	pub fn from_i32(val: i32) -> BigDec {
+		let mut ret = BigDec::zero();
 		let mut index = FRAC_LEN;
 		let mut val_u = if val < 0 {
 			ret.neg = true;
@@ -181,7 +181,7 @@ impl NumVal {
 		true
 	}
 
-	pub fn negate(&self) -> NumVal {
+	pub fn negate(&self) -> BigDec {
 		let mut ret = *self;
 		ret.neg = !ret.neg;
 		ret
@@ -207,17 +207,17 @@ impl NumVal {
 	}
 
 	// add without looking at the negative state of the inputs
-	fn add_u(nv0: NumVal, nv1: NumVal) -> Result<NumVal, Error> {
+	fn add_u(nv0: BigDec, nv1: BigDec) -> Result<BigDec, Error> {
 		let mut nv1_digits = nv1.digits;
-		try!(NumVal::accumulate_u(&nv0.digits, &mut nv1_digits));
-		Ok(NumVal { neg: false, digits: nv1_digits })
+		try!(BigDec::accumulate_u(&nv0.digits, &mut nv1_digits));
+		Ok(BigDec { neg: false, digits: nv1_digits })
 	}
 
 	// subtract without looking at the negative state of the inputs
 	// the output can become negative
-	fn sub_u(nv0: NumVal, nv1: NumVal) -> NumVal {
-		let mut ret = NumVal::zero();
-		let swap = NumVal::compare(nv0, nv1) == -1;
+	fn sub_u(nv0: BigDec, nv1: BigDec) -> BigDec {
+		let mut ret = BigDec::zero();
+		let swap = BigDec::compare(nv0, nv1) == -1;
 		let (nv_left, nv_right) = if swap { (nv1, nv0) } else { (nv0, nv1) }; 
 		let mut carry = 0;
 		for i in 0..MAX_LEN {
@@ -238,12 +238,12 @@ impl NumVal {
 		ret
 	}
 
-	pub fn add(nv0: NumVal, nv1: NumVal) -> Result<NumVal, Error> {
+	pub fn add(nv0: BigDec, nv1: BigDec) -> Result<BigDec, Error> {
 		if !nv0.neg && !nv1.neg {
-			return NumVal::add_u(nv0, nv1);
+			return BigDec::add_u(nv0, nv1);
 		}
 		else if nv0.neg && nv1.neg {
-			let mut ret = match NumVal::add_u(nv0, nv1) {
+			let mut ret = match BigDec::add_u(nv0, nv1) {
 				Ok(nv) => nv,
 				Err(err) => { return Err(err); }
 			};
@@ -251,13 +251,13 @@ impl NumVal {
 			return Ok(ret);
 		}
 		else if nv0.neg && !nv1.neg {
-			return Ok(NumVal::sub_u(nv1, nv0));
+			return Ok(BigDec::sub_u(nv1, nv0));
 		}
 		// !nv0.neg && nv1.neg
-		return Ok(NumVal::sub_u(nv0, nv1));
+		return Ok(BigDec::sub_u(nv0, nv1));
 	}
 
-	fn compare(nv0: NumVal, nv1: NumVal) -> i32 {
+	fn compare(nv0: BigDec, nv1: BigDec) -> i32 {
 		for i in (0..MAX_LEN).rev() {
 			let x = nv0.digits[i];
 			let y = nv1.digits[i];
@@ -271,9 +271,9 @@ impl NumVal {
 		return 0;
 	}
 
-	pub fn sub(nv0: NumVal, nv1: NumVal) -> Result<NumVal, Error> {
+	pub fn sub(nv0: BigDec, nv1: BigDec) -> Result<BigDec, Error> {
 		if nv0.neg && !nv1.neg {
-			let mut ret = match NumVal::add_u(nv0, nv1) {
+			let mut ret = match BigDec::add_u(nv0, nv1) {
 				Ok(nv) => nv,
 				Err(err) => { return Err(err); }
 			};
@@ -281,22 +281,22 @@ impl NumVal {
 			return Ok(ret);
 		}
 		else if nv0.neg && nv1.neg {
-			return Ok(NumVal::sub_u(nv1, nv0));
+			return Ok(BigDec::sub_u(nv1, nv0));
 		}
 		else if !nv0.neg && nv1.neg {
-			let ret = match NumVal::add_u(nv0, nv1) {
+			let ret = match BigDec::add_u(nv0, nv1) {
 				Ok(nv) => nv,
 				Err(err) => { return Err(err); }
 			};
 			return Ok(ret);
 		}
 		// !nv0.neg && !nv1.neg
-		return Ok(NumVal::sub_u(nv0, nv1));
+		return Ok(BigDec::sub_u(nv0, nv1));
 	}
 
-	// Multiplies one NumVal with one single digit
+	// Multiplies one BigDec with one single digit
 	// Returns the result as a list of digits that can be shifted 
-	fn mul_u_digit(nv0: &NumVal, digit: u8, shift: usize) -> [u8;MAX_LEN_MUL] {
+	fn mul_u_digit(nv0: &BigDec, digit: u8, shift: usize) -> [u8;MAX_LEN_MUL] {
 		let mut line = [0u8;MAX_LEN_MUL];
 		let mut carry = 0;
 		for i in 0..MAX_LEN {
@@ -307,13 +307,13 @@ impl NumVal {
 		line
 	}
 
-	fn mul_u(nv0: NumVal, nv1: NumVal) -> Result<NumVal, Error> {
+	fn mul_u(nv0: BigDec, nv1: BigDec) -> Result<BigDec, Error> {
 		let mut result = [0u8;MAX_LEN_MUL];
 		for i in 0..MAX_LEN {
-			let line = NumVal::mul_u_digit(&nv0, nv1.digits[i], i);
-			try!(NumVal::accumulate_u(&line, &mut result)); // Cannot overflow actually
+			let line = BigDec::mul_u_digit(&nv0, nv1.digits[i], i);
+			try!(BigDec::accumulate_u(&line, &mut result)); // Cannot overflow actually
 		}
-		let mut ret = NumVal::zero();
+		let mut ret = BigDec::zero();
 		// Check overflow
 		for i in FRAC_LEN+MAX_LEN..MAX_LEN_MUL {
 			if result[i] != 0 {
@@ -324,12 +324,12 @@ impl NumVal {
 		Ok(ret)
 	}
 
-	pub fn mul(nv0: NumVal, nv1: NumVal) -> Result<NumVal, Error> {
+	pub fn mul(nv0: BigDec, nv1: BigDec) -> Result<BigDec, Error> {
 		if nv0.neg == nv1.neg {
-			return NumVal::mul_u(nv0, nv1);
+			return BigDec::mul_u(nv0, nv1);
 		}
 		else {
-			let mut ret = match NumVal::mul_u(nv0, nv1) {
+			let mut ret = match BigDec::mul_u(nv0, nv1) {
 				Ok(nv) => nv,
 				Err(err) => { return Err(err); }
 			};
@@ -345,18 +345,18 @@ impl NumVal {
 		self.digits[0] = 0;
 	}
 
-	fn div_u(nv0: NumVal, nv1: NumVal, with_frac: bool) -> DivRet {
-		let mut tmp = NumVal::zero();
+	fn div_u(nv0: BigDec, nv1: BigDec, with_frac: bool) -> DivRet {
+		let mut tmp = BigDec::zero();
 		let mut i = MAX_LEN - 1;
 		let stop_at = if with_frac { 0 } else { FRAC_LEN };
-		let mut result = NumVal::zero();
+		let mut result = BigDec::zero();
 
 		loop {
 			tmp.digits[FRAC_LEN] = nv0.digits[i];
 
 			let mut counter = 0;
 			loop {
-				let next_diff = NumVal::sub_u(tmp, nv1);
+				let next_diff = BigDec::sub_u(tmp, nv1);
 				if next_diff.neg {
 					break;
 				}
@@ -376,53 +376,53 @@ impl NumVal {
 		DivRet { quotient: result, remainder: tmp }
 	}
 
-	pub fn div(nv0: NumVal, nv1: NumVal) -> Result<NumVal, Error> {
+	pub fn div(nv0: BigDec, nv1: BigDec) -> Result<BigDec, Error> {
 		if nv1.is_zero() {
 			return Err(Error::OpDivideByZero);
 		}
 
 		if nv0.neg {
 			if nv1.neg {
-				let div_ret = NumVal::div_u(nv0, nv1, true);
+				let div_ret = BigDec::div_u(nv0, nv1, true);
 				return Ok(div_ret.quotient);
 			}
 			else {
-				let mut div_ret = NumVal::div_u(nv0, nv1, true);
+				let mut div_ret = BigDec::div_u(nv0, nv1, true);
 				div_ret.quotient.neg = true;
 				return Ok(div_ret.quotient);
 			}
 		}
 		else {
 			if nv1.neg {
-				let mut div_ret = NumVal::div_u(nv0, nv1, true);
+				let mut div_ret = BigDec::div_u(nv0, nv1, true);
 				div_ret.quotient.neg = true;
 				return Ok(div_ret.quotient);
 			}
 			else {
-				let div_ret = NumVal::div_u(nv0, nv1, true);
+				let div_ret = BigDec::div_u(nv0, nv1, true);
 				return Ok(div_ret.quotient);
 			}
 		}
 	}
 
-	pub fn div_mod(nv0: NumVal, nv1: NumVal) -> Result<NumVal, Error> {
+	pub fn div_mod(nv0: BigDec, nv1: BigDec) -> Result<BigDec, Error> {
 		if nv1.is_zero() {
 			return Err(Error::OpDivideByZero);
 		}
 
 		if nv1.neg {
-			let mut div_ret = NumVal::div_u(nv0, nv1, false);
+			let mut div_ret = BigDec::div_u(nv0, nv1, false);
 			div_ret.remainder.neg = true;
 			return Ok(div_ret.remainder);
 		}
 		else {
-			let div_ret = NumVal::div_u(nv0, nv1, false);
+			let div_ret = BigDec::div_u(nv0, nv1, false);
 			return Ok(div_ret.remainder);
 		}
 	}
 
 	// Parses a positive number
-	pub fn parse_chars(input_chars: &mut std::iter::Peekable<std::str::Chars>) -> Result<NumVal, Error> {
+	pub fn parse_chars(input_chars: &mut std::iter::Peekable<std::str::Chars>) -> Result<BigDec, Error> {
 		let c = {
 			let c_opt = input_chars.peek();
 			if c_opt.is_none() {
@@ -441,7 +441,7 @@ impl NumVal {
 		};
 		input_chars.next();
 		
-		let mut val = NumVal::zero();
+		let mut val = BigDec::zero();
 		val.digits[FRAC_LEN] = digit32;
 
 		let mut shift_count = 0;
@@ -495,20 +495,20 @@ impl NumVal {
 
 	// for testing
 	#[allow(dead_code)]
-	pub fn parse_str(arg: &str) -> Result<NumVal, Error> {
+	pub fn parse_str(arg: &str) -> Result<BigDec, Error> {
 		let mut ic = arg.chars().peekable();
-		NumVal::parse_chars(&mut ic)
+		BigDec::parse_chars(&mut ic)
 	}
 }
 
 #[test]
 fn test_add() {
-	assert_eq!("3",  NumVal::add(NumVal::from_i32(1),  NumVal::from_i32(2)).unwrap().to_string());
-	assert_eq!("-3", NumVal::add(NumVal::from_i32(-1), NumVal::from_i32(-2)).unwrap().to_string());
-	assert_eq!("1",  NumVal::add(NumVal::from_i32(-1), NumVal::from_i32(2)).unwrap().to_string());
-	assert_eq!("-1", NumVal::add(NumVal::from_i32(1),  NumVal::from_i32(-2)).unwrap().to_string());
+	assert_eq!("3",  BigDec::add(BigDec::from_i32(1),  BigDec::from_i32(2)).unwrap().to_string());
+	assert_eq!("-3", BigDec::add(BigDec::from_i32(-1), BigDec::from_i32(-2)).unwrap().to_string());
+	assert_eq!("1",  BigDec::add(BigDec::from_i32(-1), BigDec::from_i32(2)).unwrap().to_string());
+	assert_eq!("-1", BigDec::add(BigDec::from_i32(1),  BigDec::from_i32(-2)).unwrap().to_string());
 
-	let mut less_than_zero = NumVal::zero();
+	let mut less_than_zero = BigDec::zero();
 	less_than_zero.digits[FRAC_LEN-1] = 1;
 	assert_eq!("0.1", less_than_zero.to_string());
 }
@@ -519,7 +519,7 @@ fn test_add_overflow() {
 	for _ in 0..INT_LEN {
 		arg.push('9');
 	}
-	let res = NumVal::add(NumVal::parse_str(&arg).unwrap(),  NumVal::parse_str(&arg).unwrap());
+	let res = BigDec::add(BigDec::parse_str(&arg).unwrap(),  BigDec::parse_str(&arg).unwrap());
 	assert!(res.is_err());
 	let expected_err = match res.unwrap_err() {
 		Error::OpOverflow => true,
@@ -530,28 +530,28 @@ fn test_add_overflow() {
 
 #[test]
 fn test_sub() {
-	assert_eq!("1",  NumVal::sub(NumVal::from_i32(2),  NumVal::from_i32(1)).unwrap().to_string());
-	assert_eq!("-1", NumVal::sub(NumVal::from_i32(-2), NumVal::from_i32(-1)).unwrap().to_string());
-	assert_eq!("-3", NumVal::sub(NumVal::from_i32(-2), NumVal::from_i32(1)).unwrap().to_string());
-	assert_eq!("3",  NumVal::sub(NumVal::from_i32(2),  NumVal::from_i32(-1)).unwrap().to_string());
+	assert_eq!("1",  BigDec::sub(BigDec::from_i32(2),  BigDec::from_i32(1)).unwrap().to_string());
+	assert_eq!("-1", BigDec::sub(BigDec::from_i32(-2), BigDec::from_i32(-1)).unwrap().to_string());
+	assert_eq!("-3", BigDec::sub(BigDec::from_i32(-2), BigDec::from_i32(1)).unwrap().to_string());
+	assert_eq!("3",  BigDec::sub(BigDec::from_i32(2),  BigDec::from_i32(-1)).unwrap().to_string());
 
-	assert_eq!("-1", NumVal::sub(NumVal::from_i32(1),  NumVal::from_i32(2)).unwrap().to_string());
-	assert_eq!("1",  NumVal::sub(NumVal::from_i32(-1), NumVal::from_i32(-2)).unwrap().to_string());
-	assert_eq!("-3", NumVal::sub(NumVal::from_i32(-1), NumVal::from_i32(2)).unwrap().to_string());
-	assert_eq!("3",  NumVal::sub(NumVal::from_i32(1),  NumVal::from_i32(-2)).unwrap().to_string());
+	assert_eq!("-1", BigDec::sub(BigDec::from_i32(1),  BigDec::from_i32(2)).unwrap().to_string());
+	assert_eq!("1",  BigDec::sub(BigDec::from_i32(-1), BigDec::from_i32(-2)).unwrap().to_string());
+	assert_eq!("-3", BigDec::sub(BigDec::from_i32(-1), BigDec::from_i32(2)).unwrap().to_string());
+	assert_eq!("3",  BigDec::sub(BigDec::from_i32(1),  BigDec::from_i32(-2)).unwrap().to_string());
 }
 
 #[test]
 fn test_mul() {
-	assert_eq!("15",  NumVal::mul(NumVal::from_i32(3),  NumVal::from_i32(5)).unwrap().to_string());
-	assert_eq!("150",  NumVal::mul(NumVal::from_i32(30),  NumVal::from_i32(5)).unwrap().to_string());
-	assert_eq!("1500",  NumVal::mul(NumVal::from_i32(30),  NumVal::from_i32(50)).unwrap().to_string());
-	assert_eq!("9801",  NumVal::mul(NumVal::from_i32(99),  NumVal::from_i32(99)).unwrap().to_string());
+	assert_eq!("15",  BigDec::mul(BigDec::from_i32(3),  BigDec::from_i32(5)).unwrap().to_string());
+	assert_eq!("150",  BigDec::mul(BigDec::from_i32(30),  BigDec::from_i32(5)).unwrap().to_string());
+	assert_eq!("1500",  BigDec::mul(BigDec::from_i32(30),  BigDec::from_i32(50)).unwrap().to_string());
+	assert_eq!("9801",  BigDec::mul(BigDec::from_i32(99),  BigDec::from_i32(99)).unwrap().to_string());
 
-	assert_eq!("28",  NumVal::mul(NumVal::from_i32(4),  NumVal::from_i32(7)).unwrap().to_string());
-	assert_eq!("-28",  NumVal::mul(NumVal::from_i32(-4),  NumVal::from_i32(7)).unwrap().to_string());
-	assert_eq!("-28",  NumVal::mul(NumVal::from_i32(4),  NumVal::from_i32(-7)).unwrap().to_string());
-	assert_eq!("28",  NumVal::mul(NumVal::from_i32(-4),  NumVal::from_i32(-7)).unwrap().to_string());
+	assert_eq!("28",  BigDec::mul(BigDec::from_i32(4),  BigDec::from_i32(7)).unwrap().to_string());
+	assert_eq!("-28",  BigDec::mul(BigDec::from_i32(-4),  BigDec::from_i32(7)).unwrap().to_string());
+	assert_eq!("-28",  BigDec::mul(BigDec::from_i32(4),  BigDec::from_i32(-7)).unwrap().to_string());
+	assert_eq!("28",  BigDec::mul(BigDec::from_i32(-4),  BigDec::from_i32(-7)).unwrap().to_string());
 }
 
 #[test]
@@ -560,7 +560,7 @@ fn test_mul_overflow() {
 	for _ in 0..INT_LEN {
 		arg.push('9');
 	}
-	let res = NumVal::mul(NumVal::parse_str(&arg).unwrap(),  NumVal::parse_str(&arg).unwrap());
+	let res = BigDec::mul(BigDec::parse_str(&arg).unwrap(),  BigDec::parse_str(&arg).unwrap());
 	assert!(res.is_err());
 	let expected_err = match res.unwrap_err() {
 		Error::OpOverflow => true,
@@ -571,23 +571,23 @@ fn test_mul_overflow() {
 
 #[test]
 fn test_div() {
-	assert_eq!("15.625",  NumVal::div(NumVal::from_i32(1000),  NumVal::from_i32(64)).unwrap().to_string());
-	assert_eq!("-15.625",  NumVal::div(NumVal::from_i32(-1000),  NumVal::from_i32(64)).unwrap().to_string());
-	assert_eq!("-15.625",  NumVal::div(NumVal::from_i32(1000),  NumVal::from_i32(-64)).unwrap().to_string());
-	assert_eq!("15.625",  NumVal::div(NumVal::from_i32(-1000),  NumVal::from_i32(-64)).unwrap().to_string());
+	assert_eq!("15.625",  BigDec::div(BigDec::from_i32(1000),  BigDec::from_i32(64)).unwrap().to_string());
+	assert_eq!("-15.625",  BigDec::div(BigDec::from_i32(-1000),  BigDec::from_i32(64)).unwrap().to_string());
+	assert_eq!("-15.625",  BigDec::div(BigDec::from_i32(1000),  BigDec::from_i32(-64)).unwrap().to_string());
+	assert_eq!("15.625",  BigDec::div(BigDec::from_i32(-1000),  BigDec::from_i32(-64)).unwrap().to_string());
 }
 
 #[test]
 fn test_div_mod() {
-	assert_eq!("4",  NumVal::div_mod(NumVal::from_i32(100),  NumVal::from_i32(48)).unwrap().to_string());
-	assert_eq!("4",  NumVal::div_mod(NumVal::from_i32(-100),  NumVal::from_i32(48)).unwrap().to_string());
-	assert_eq!("-4",  NumVal::div_mod(NumVal::from_i32(100),  NumVal::from_i32(-48)).unwrap().to_string());
-	assert_eq!("-4",  NumVal::div_mod(NumVal::from_i32(-100),  NumVal::from_i32(-48)).unwrap().to_string());
+	assert_eq!("4",  BigDec::div_mod(BigDec::from_i32(100),  BigDec::from_i32(48)).unwrap().to_string());
+	assert_eq!("4",  BigDec::div_mod(BigDec::from_i32(-100),  BigDec::from_i32(48)).unwrap().to_string());
+	assert_eq!("-4",  BigDec::div_mod(BigDec::from_i32(100),  BigDec::from_i32(-48)).unwrap().to_string());
+	assert_eq!("-4",  BigDec::div_mod(BigDec::from_i32(-100),  BigDec::from_i32(-48)).unwrap().to_string());
 }
 
 #[test]
 fn test_parse() {
-	let nv = NumVal::parse_str("1.02");
+	let nv = BigDec::parse_str("1.02");
 	assert!(nv.is_ok());
 	assert_eq!("1.02", nv.unwrap().to_string());
 }

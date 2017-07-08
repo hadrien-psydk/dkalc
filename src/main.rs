@@ -13,15 +13,15 @@ const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 fn main() {
 	//println!("{}", eval::eval_input("4+2-3-3"));
 	/*
-	println!("{}", num_val::NumVal::div(
-		num_val::NumVal::from_i32(100),
-		num_val::NumVal::from_i32(48)
+	println!("{}", num_val::BigDec::div(
+		num_val::BigDec::from_i32(100),
+		num_val::BigDec::from_i32(48)
 		).to_string()
 	);
 
-	println!("{}", num_val::NumVal::div_mod(
-		num_val::NumVal::from_i32(100),
-		num_val::NumVal::from_i32(48)
+	println!("{}", num_val::BigDec::div_mod(
+		num_val::BigDec::from_i32(100),
+		num_val::BigDec::from_i32(48)
 		).to_string()
 	);*/
 

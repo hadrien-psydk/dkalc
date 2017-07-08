@@ -1,6 +1,6 @@
 use text_canvas::TextCanvas;
 use num_val;
-use num_val::NumVal;
+use num_val::BigDec;
 use token;
 use token::Token;
 
@@ -93,33 +93,33 @@ impl Tree {
 		canvas.to_string()
 	}
 
-	fn eval_node(&self, node_id: usize) -> Result<NumVal, EvalError> {
+	fn eval_node(&self, node_id: usize) -> Result<BigDec, EvalError> {
 		let node = self.get_node(node_id);
 		
 		let val_left = if let Some(left_id) = node.left_id {
 			try!(self.eval_node(left_id))
 		}
 		else {
-			NumVal::zero()
+			BigDec::zero()
 		};
 
 		let val_right = if let Some(right_id) = node.right_id {
 			try!(self.eval_node(right_id))
 		}
 		else {
-			NumVal::zero()
+			BigDec::zero()
 		};
 
 		let nv_result = match node.token {
-			Token::Nothing => Ok(NumVal::zero()),
+			Token::Nothing => Ok(BigDec::zero()),
 			Token::Number(ref nv) => Ok(*nv),
-			Token::ParOpen => Ok(NumVal::zero()),
-			Token::ParClose => Ok(NumVal::zero()),
-			Token::Add => NumVal::add(val_left, val_right),
-			Token::Sub => NumVal::sub(val_left, val_right),
-			Token::Mul => NumVal::mul(val_left, val_right),
-			Token::Div => NumVal::div(val_left, val_right),
-			Token::Mod => NumVal::div_mod(val_left, val_right),
+			Token::ParOpen => Ok(BigDec::zero()),
+			Token::ParClose => Ok(BigDec::zero()),
+			Token::Add => BigDec::add(val_left, val_right),
+			Token::Sub => BigDec::sub(val_left, val_right),
+			Token::Mul => BigDec::mul(val_left, val_right),
+			Token::Div => BigDec::div(val_left, val_right),
+			Token::Mod => BigDec::div_mod(val_left, val_right),
 		};
 		if nv_result.is_err() {
 			return Err(EvalError::Nv(nv_result.unwrap_err()));
@@ -127,7 +127,7 @@ impl Tree {
 		Ok(nv_result.unwrap())
 	}
 
-	fn eval(&self) -> Result<NumVal, EvalError> {
+	fn eval(&self) -> Result<BigDec, EvalError> {
 		self.eval_node(self.root_id)
 	}
 }

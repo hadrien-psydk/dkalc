@@ -1,12 +1,12 @@
 use std;
 use num_val;
-use num_val::NumVal;
+use num_val::BigDec;
 
 #[allow(dead_code)]
 #[derive(Copy,Clone)]
 pub enum Token {
 	Nothing,
-	Number(NumVal),
+	Number(BigDec),
 	ParOpen,
 	ParClose,
 	Add,
@@ -61,7 +61,7 @@ impl<'a> InputContext<'a> {
 	fn next_token(&mut self) -> Result<Token, Error> {
 		let ret;
 		loop {
-			let num_res = NumVal::parse_chars(&mut self.input_chars);
+			let num_res = BigDec::parse_chars(&mut self.input_chars);
 			match num_res {
 				Ok(num) => {
 					ret = Ok(Token::Number(num));
