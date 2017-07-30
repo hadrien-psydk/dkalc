@@ -30,15 +30,19 @@ impl TreeArena {
 }
 
 enum EvalError {
-	Nv(big_dec::Error)
+	Bd(big_dec::Error)
 }
 
 impl EvalError {
 	fn to_string(&self) -> String {
 		match *self {
-			EvalError::Nv(ref nv_error) => nv_error.to_string()
+			EvalError::Bd(ref nv_error) => nv_error.to_string()
 		}
 	}
+}
+
+fn eval_func(name: token::Name, arg: big_dec::BigDec) -> Result<BigDec, EvalError> {
+	Ok(arg)
 }
 
 struct Tree {
@@ -115,16 +119,29 @@ impl Tree {
 			Token::Number(ref nv) => Ok(*nv),
 			Token::ParOpen => Ok(BigDec::zero()),
 			Token::ParClose => Ok(BigDec::zero()),
-			Token::Add => BigDec::add(val_left, val_right),
-			Token::Sub => BigDec::sub(val_left, val_right),
-			Token::Mul => BigDec::mul(val_left, val_right),
-			Token::Div => BigDec::div(val_left, val_right),
-			Token::Mod => BigDec::div_mod(val_left, val_right),
+			Token::Add => match BigDec::add(val_left, val_right) {
+				Ok(val) => Ok(val),
+				Err(err) => Err(EvalError::Bd(err))
+			},
+			Token::Sub => match BigDec::sub(val_left, val_right) {
+				Ok(val) => Ok(val),
+				Err(err) => Err(EvalError::Bd(err))
+			},
+			Token::Mul => match BigDec::mul(val_left, val_right) {
+				Ok(val) => Ok(val),
+				Err(err) => Err(EvalError::Bd(err))
+			},
+			Token::Div => match BigDec::div(val_left, val_right) {
+				Ok(val) => Ok(val),
+				Err(err) => Err(EvalError::Bd(err))
+			},
+			Token::Mod => match BigDec::div_mod(val_left, val_right) {
+				Ok(val) => Ok(val),
+				Err(err) => Err(EvalError::Bd(err))
+			},
+			Token::Func(name) => eval_func(name, val_left),
 		};
-		if nv_result.is_err() {
-			return Err(EvalError::Nv(nv_result.unwrap_err()));
-		}
-		Ok(nv_result.unwrap())
+		nv_result
 	}
 
 	fn eval(&self) -> Result<BigDec, EvalError> {
@@ -159,8 +176,69 @@ enum ParseResult {
 	Some(usize),
 }
 
+fn parse_factor_parenthesis(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
+	// Parenthesis expression
+	let inside = parse_expression(tg, arena);
+	
+	// We expect the closing parenthesis
+	let op2 = match tg.next() {
+		Some(op2) => op2,
+		None => {
+			return ParseResult::Fail(format!("missing ')'"));
+		}
+	};
+
+	match *op2 {
+		Token::ParClose => (),
+		_ => {
+			return ParseResult::Fail(format!("expected ')', found: {}", op2.to_string()));
+		}
+	}
+	return inside;
+}
+
+fn parse_factor_function(tg: &mut TokenGetter, arena: &mut TreeArena, name: token::Name) -> ParseResult {
+	// Parenthesis expression
+	let inside_id_res = parse_expression(tg, arena);
+	let inside_id = match inside_id_res {
+		ParseResult::None => {
+			// Missing function argument
+			return ParseResult::Fail(format!("missing function argument"));
+		},
+		ParseResult::Fail(err) => {
+			return ParseResult::Fail(err)
+		},
+		ParseResult::Some(inside_id) => {
+			// Ok, continue
+			inside_id
+		}
+	};
+	
+	// We expect the closing parenthesis
+	let op2 = match tg.next() {
+		Some(op2) => op2,
+		None => {
+			return ParseResult::Fail(format!("missing ')'"));
+		}
+	};
+
+	match *op2 {
+		Token::ParClose => (),
+		_ => {
+			return ParseResult::Fail(format!("expected ')', found: {}", op2.to_string()));
+		}
+	}
+
+	// Alloc a node to keep the function name and the subtree inside the parenthesis
+	let (mut node, node_id) = arena.alloc_node(Token::Func(name));
+	node.left_id = Some(inside_id);
+	node.right_id = None;
+	ParseResult::Some(node_id)
+}
+
 // F -> '-'? number
 // F -> '(' X ')'
+// F -> 'func(' X ')'
 fn parse_factor(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 	let op = match tg.next() {
 		Some(op) => op,
@@ -189,30 +267,16 @@ fn parse_factor(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 			let node_id = arena.alloc_leaf(Token::Number(nv));
 			return ParseResult::Some(node_id);
 		},
-		Token::ParOpen => (),
+		Token::ParOpen => {
+			return parse_factor_parenthesis(tg, arena);
+		},
+		Token::Func(name) => {
+			return parse_factor_function(tg, arena, name);
+		},
 		_ => {
 			return ParseResult::Fail(format!("unexpected {}", op.to_string()));
-		}
+		},
 	}
-
-	// Parenthesis expression
-	let inside = parse_expression(tg, arena);
-	
-	// We expect the closing parenthesis
-	let op2 = match tg.next() {
-		Some(op2) => op2,
-		None => {
-			return ParseResult::Fail(format!("missing ')'"));
-		}
-	};
-
-	match *op2 {
-		Token::ParClose => (),
-		_ => {
-			return ParseResult::Fail(format!("expected ')', found: {}", op2.to_string()));
-		}
-	}
-	return inside;
 }
 
 // { * F }*
@@ -337,7 +401,8 @@ pub fn eval_input_debug(input: &str, debug: bool) -> String {
 		Ok(tokens) => tokens,
 		Err(err) => { return err.to_string(); }
 	};
-	/*
+
+	/*	
 	print!("{} tokens: ", tokens.len());
 	for t in &tokens {
 		print!("[{}] ", t.to_string());

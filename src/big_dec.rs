@@ -426,7 +426,7 @@ impl BigDec {
 		let c = {
 			let c_opt = input_chars.peek();
 			if c_opt.is_none() {
-				return Err(Error::ParseNothing); // No character
+				return Err(Error::ParseNothing); // End of string
 			}
 			let c = c_opt.unwrap();
 			*c
@@ -435,7 +435,7 @@ impl BigDec {
 		// Check that the character is a digit
 		let digit32 = {
 			if !c.is_digit(10) {
-				return Result::Err(Error::ParseNothing);
+				return Result::Err(Error::ParseNothing); // Not a number
 			}
 			c.to_digit(10).unwrap() as u8
 		};
