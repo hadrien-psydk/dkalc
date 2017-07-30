@@ -3,6 +3,7 @@ use big_dec;
 use big_dec::BigDec;
 use token;
 use token::Token;
+use funcs;
 
 struct Node {
     token: Token,
@@ -30,19 +31,36 @@ impl TreeArena {
 }
 
 enum EvalError {
-	Bd(big_dec::Error)
+	Bd(big_dec::Error),
+	UnknownFunc
 }
 
 impl EvalError {
 	fn to_string(&self) -> String {
 		match *self {
-			EvalError::Bd(ref nv_error) => nv_error.to_string()
+			EvalError::Bd(ref nv_error) => nv_error.to_string(),
+			EvalError::UnknownFunc => "unknown function".to_string()
 		}
 	}
 }
 
 fn eval_func(name: token::Name, arg: big_dec::BigDec) -> Result<BigDec, EvalError> {
-	Ok(arg)
+	let name_str = name.to_string();
+	if name_str == "zero" {
+		match funcs::bd_zero(arg) {
+			Ok(val) => return Ok(val),
+			Err(err) => return Err(EvalError::Bd(err))
+		}
+	}
+	else if name_str == "same" {
+		match funcs::bd_same(arg) {
+			Ok(val) => return Ok(val),
+			Err(err) => return Err(EvalError::Bd(err))
+		}
+	}
+	else {
+		return Err(EvalError::UnknownFunc)
+	}
 }
 
 struct Tree {

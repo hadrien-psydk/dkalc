@@ -7,6 +7,7 @@ mod text_canvas;
 mod eval;
 mod big_dec;
 mod token;
+mod funcs;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
