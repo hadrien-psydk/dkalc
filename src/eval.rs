@@ -44,23 +44,27 @@ impl EvalError {
 	}
 }
 
+struct FuncDisp {
+	name: &'static str,
+	bdf: fn(arg: BigDec) -> Result<BigDec, big_dec::Error>
+}
+
 fn eval_func(name: token::Name, arg: big_dec::BigDec) -> Result<BigDec, EvalError> {
+	let func_disps = [
+		FuncDisp { name: "zero", bdf: funcs::bd_zero },
+		FuncDisp { name: "same", bdf: funcs::bd_same }
+	];
 	let name_str = name.to_string();
-	if name_str == "zero" {
-		match funcs::bd_zero(arg) {
-			Ok(val) => return Ok(val),
-			Err(err) => return Err(EvalError::Bd(err))
+	for fd in &func_disps {
+		if name_str == fd.name {
+			match (fd.bdf)(arg) {
+				Ok(val) => return Ok(val),
+				Err(err) => return Err(EvalError::Bd(err))
+			}
+
 		}
 	}
-	else if name_str == "same" {
-		match funcs::bd_same(arg) {
-			Ok(val) => return Ok(val),
-			Err(err) => return Err(EvalError::Bd(err))
-		}
-	}
-	else {
-		return Err(EvalError::UnknownFunc)
-	}
+	Err(EvalError::UnknownFunc)
 }
 
 struct Tree {
