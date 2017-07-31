@@ -32,39 +32,16 @@ impl TreeArena {
 
 enum EvalError {
 	Bd(big_dec::Error),
-	UnknownFunc
+	Fn(funcs::Error)
 }
 
 impl EvalError {
 	fn to_string(&self) -> String {
 		match *self {
 			EvalError::Bd(ref nv_error) => nv_error.to_string(),
-			EvalError::UnknownFunc => "unknown function".to_string()
+			EvalError::Fn(ref fn_error) => fn_error.to_string()
 		}
 	}
-}
-
-struct FuncDisp {
-	name: &'static str,
-	bdf: fn(arg: BigDec) -> Result<BigDec, big_dec::Error>
-}
-
-fn eval_func(name: token::Name, arg: big_dec::BigDec) -> Result<BigDec, EvalError> {
-	let func_disps = [
-		FuncDisp { name: "zero", bdf: funcs::bd_zero },
-		FuncDisp { name: "same", bdf: funcs::bd_same }
-	];
-	let name_str = name.to_string();
-	for fd in &func_disps {
-		if name_str == fd.name {
-			match (fd.bdf)(arg) {
-				Ok(val) => return Ok(val),
-				Err(err) => return Err(EvalError::Bd(err))
-			}
-
-		}
-	}
-	Err(EvalError::UnknownFunc)
 }
 
 struct Tree {
@@ -87,7 +64,7 @@ impl Tree {
 			let state0 = canvas.get_state();
 			canvas.do_str("\u{2534}");
 			canvas.left(pad/2+2);
-			
+
 			let state1 = canvas.get_state();
 			canvas.do_str("\u{250c}");
 			canvas.do_str_n("\u{2500}", pad/2);
@@ -121,7 +98,7 @@ impl Tree {
 
 	fn eval_node(&self, node_id: usize) -> Result<BigDec, EvalError> {
 		let node = self.get_node(node_id);
-		
+
 		let val_left = if let Some(left_id) = node.left_id {
 			try!(self.eval_node(left_id))
 		}
@@ -161,7 +138,10 @@ impl Tree {
 				Ok(val) => Ok(val),
 				Err(err) => Err(EvalError::Bd(err))
 			},
-			Token::Func(name) => eval_func(name, val_left),
+			Token::Func(name) => match funcs::eval_func(name, val_left) {
+				Ok(val) => Ok(val),
+				Err(err) => Err(EvalError::Fn(err))
+			}
 		};
 		nv_result
 	}
@@ -201,7 +181,7 @@ enum ParseResult {
 fn parse_factor_parenthesis(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 	// Parenthesis expression
 	let inside = parse_expression(tg, arena);
-	
+
 	// We expect the closing parenthesis
 	let op2 = match tg.next() {
 		Some(op2) => op2,
@@ -235,7 +215,7 @@ fn parse_factor_function(tg: &mut TokenGetter, arena: &mut TreeArena, name: toke
 			inside_id
 		}
 	};
-	
+
 	// We expect the closing parenthesis
 	let op2 = match tg.next() {
 		Some(op2) => op2,
@@ -387,7 +367,7 @@ fn parse_expression(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult 
 	match parse_term(tg, arena) {
 		ParseResult::None => ParseResult::None,
 		ParseResult::Fail(err) => ParseResult::Fail(err),
-		ParseResult::Some(root_id) => { 
+		ParseResult::Some(root_id) => {
 			// { - T }
 			match parse_expression_right(tg, arena, root_id) {
 				ParseResult::None => ParseResult::Some(root_id),
@@ -424,7 +404,7 @@ pub fn eval_input_debug(input: &str, debug: bool) -> String {
 		Err(err) => { return err.to_string(); }
 	};
 
-	/*	
+	/*
 	print!("{} tokens: ", tokens.len());
 	for t in &tokens {
 		print!("[{}] ", t.to_string());
