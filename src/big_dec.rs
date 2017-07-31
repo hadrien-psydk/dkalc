@@ -444,7 +444,7 @@ impl BigDec {
 		let mut val = BigDec::zero();
 		val.digits[FRAC_LEN] = digit32;
 
-		let mut shift_count = 0;
+		let mut shift_count = 1;
 		let mut dot_found = false;
 		let mut frac_index = FRAC_LEN;
 		loop {
@@ -590,4 +590,24 @@ fn test_parse() {
 	let nv = BigDec::parse_str("1.02");
 	assert!(nv.is_ok());
 	assert_eq!("1.02", nv.unwrap().to_string());
+
+	// Too many digits
+	let mut too_long = String::with_capacity(INT_LEN + 1);
+	for _ in 0..INT_LEN - 1 {
+		too_long.push_str("1");
+	}
+	too_long.push_str("2");
+	let nv = BigDec::parse_str(&too_long);
+	assert!(nv.is_ok());
+
+	too_long.push_str("3");
+	let nv2 = BigDec::parse_str(&too_long);
+	let is_int_part_overflow_err = match nv2 {
+		Err(err) => match err {
+			Error::ParseIntPartOverflow => true,
+			_ => false
+		},
+		Ok(_) => false
+	};
+	assert!(is_int_part_overflow_err);
 }
