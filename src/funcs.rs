@@ -24,7 +24,8 @@ struct FuncDisp {
 pub fn eval_func(name: token::Name, arg: big_dec::BigDec) -> Result<BigDec, Error> {
 	let func_disps = [
 		FuncDisp { name: "zero", bdf: bd_zero },
-		FuncDisp { name: "same", bdf: bd_same }
+		FuncDisp { name: "same", bdf: bd_same },
+		FuncDisp { name: "sqrt", bdf: bd_sqrt }
 	];
 	let name_str = name.to_string();
 	for fd in &func_disps {
@@ -39,10 +40,30 @@ pub fn eval_func(name: token::Name, arg: big_dec::BigDec) -> Result<BigDec, Erro
 	Err(Error::UnknownFunc)
 }
 
-pub fn bd_zero(_: BigDec) -> Result<BigDec, big_dec::Error> {
+fn bd_zero(_: BigDec) -> Result<BigDec, big_dec::Error> {
 	Ok(BigDec::zero())
 }
 
-pub fn bd_same(arg: BigDec) -> Result<BigDec, big_dec::Error> {
+fn bd_same(arg: BigDec) -> Result<BigDec, big_dec::Error> {
 	Ok(arg)
+}
+
+fn bd_sqrt(arg: BigDec) -> Result<BigDec, big_dec::Error> {
+
+	let mut r = BigDec::from_i32(1);
+	let two = BigDec::from_i32(2);
+
+	let limit = big_dec::BigDec::max_len() * 2;
+	for _ in 0..limit {
+		let arg_div_r = try!(BigDec::div(arg, r));
+		let r_add_adr = try!(BigDec::add(r, arg_div_r));
+		let r_aadr_div2 = try!(BigDec::div(r_add_adr, two));
+		if BigDec::compare(r, r_aadr_div2) == 0 {
+			break;
+		}
+		r = r_aadr_div2;
+
+		//println!("{} r: {}", i, r);
+	}
+	Ok(r)
 }

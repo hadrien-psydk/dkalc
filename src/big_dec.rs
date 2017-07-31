@@ -172,6 +172,10 @@ impl BigDec {
 		ret
 	}
 
+	pub fn max_len() -> usize {
+		MAX_LEN
+	}
+
 	pub fn is_zero(&self) -> bool {
 		for i in 0..MAX_LEN {
 			if self.digits[i] != 0 {
@@ -257,7 +261,7 @@ impl BigDec {
 		return Ok(BigDec::sub_u(nv0, nv1));
 	}
 
-	fn compare(nv0: BigDec, nv1: BigDec) -> i32 {
+	pub fn compare(nv0: BigDec, nv1: BigDec) -> i32 {
 		for i in (0..MAX_LEN).rev() {
 			let x = nv0.digits[i];
 			let y = nv1.digits[i];
