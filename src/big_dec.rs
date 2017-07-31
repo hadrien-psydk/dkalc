@@ -126,7 +126,7 @@ impl BigDec {
 		}
 		else {
 			ret.neg = false;
-			val as u32 
+			val as u32
 		};
 
 		loop {
@@ -218,7 +218,7 @@ impl BigDec {
 	fn sub_u(nv0: BigDec, nv1: BigDec) -> BigDec {
 		let mut ret = BigDec::zero();
 		let swap = BigDec::compare(nv0, nv1) == -1;
-		let (nv_left, nv_right) = if swap { (nv1, nv0) } else { (nv0, nv1) }; 
+		let (nv_left, nv_right) = if swap { (nv1, nv0) } else { (nv0, nv1) };
 		let mut carry = 0;
 		for i in 0..MAX_LEN {
 			let x = nv_left.digits[i];
@@ -295,7 +295,7 @@ impl BigDec {
 	}
 
 	// Multiplies one BigDec with one single digit
-	// Returns the result as a list of digits that can be shifted 
+	// Returns the result as a list of digits that can be shifted
 	fn mul_u_digit(nv0: &BigDec, digit: u8, shift: usize) -> [u8;MAX_LEN_MUL] {
 		let mut line = [0u8;MAX_LEN_MUL];
 		let mut carry = 0;
@@ -338,6 +338,7 @@ impl BigDec {
 		}
 	}
 
+	// Multiply by 10
 	fn shift_right(&mut self) {
 		for i in 0..MAX_LEN-1 {
 			self.digits[MAX_LEN-1-i] = self.digits[MAX_LEN-2-i];
@@ -345,19 +346,45 @@ impl BigDec {
 		self.digits[0] = 0;
 	}
 
+	// Divide by 10
+	#[allow(dead_code)]
+	fn shift_left(&mut self) {
+		for i in 0..MAX_LEN-1 {
+			self.digits[i] = self.digits[i + 1];
+		}
+		self.digits[MAX_LEN - 1] = 0;
+	}
+
 	fn div_u(nv0: BigDec, nv1: BigDec, with_frac: bool) -> DivRet {
+		//println!("u_div: {:?} / {:?}", nv0, nv1);
 		let mut tmp = BigDec::zero();
-		let mut i = MAX_LEN - 1;
-		let stop_at = if with_frac { 0 } else { FRAC_LEN };
+		let mut src_digit_index = Some(MAX_LEN - 1);
+		let mut index = 0;
+		let stop_at = if with_frac { MAX_LEN+FRAC_LEN } else { MAX_LEN };
+
 		let mut result = BigDec::zero();
 
 		loop {
-			tmp.digits[FRAC_LEN] = nv0.digits[i];
+			src_digit_index = match src_digit_index {
+				Some(index) => {
+					tmp.digits[0] = nv0.digits[index];
+					if index == 0 {
+						None
+					}
+					else {
+						Some(index - 1)
+					}
+				},
+				None => None
+			};
 
 			let mut counter = 0;
+			//println!("div_u: enter subloop");
 			loop {
 				let next_diff = BigDec::sub_u(tmp, nv1);
+				//println!("div_u: {} - {} = {}", tmp, nv1, next_diff);
 				if next_diff.neg {
+					//println!("div_u: subloop stop, counter: {}", counter);
 					break;
 				}
 				tmp = next_diff;
@@ -365,12 +392,17 @@ impl BigDec {
 			}
 			result.shift_right();
 			result.digits[0] = counter;
-			
-			if i == stop_at {
+
+			index += 1;
+			if index == stop_at {
 				break;
 			}
-			i -= 1;
+
 			tmp.neg = false;
+			tmp.shift_right();
+
+		}
+		if with_frac {
 			tmp.shift_right();
 		}
 		DivRet { quotient: result, remainder: tmp }
@@ -440,7 +472,7 @@ impl BigDec {
 			c.to_digit(10).unwrap() as u8
 		};
 		input_chars.next();
-		
+
 		let mut val = BigDec::zero();
 		val.digits[FRAC_LEN] = digit32;
 
@@ -575,6 +607,10 @@ fn test_div() {
 	assert_eq!("-15.625",  BigDec::div(BigDec::from_i32(-1000),  BigDec::from_i32(64)).unwrap().to_string());
 	assert_eq!("-15.625",  BigDec::div(BigDec::from_i32(1000),  BigDec::from_i32(-64)).unwrap().to_string());
 	assert_eq!("15.625",  BigDec::div(BigDec::from_i32(-1000),  BigDec::from_i32(-64)).unwrap().to_string());
+
+	let mut one_point_six = BigDec::from_i32(16);
+	one_point_six.shift_left();
+	assert_eq!("1.25", BigDec::div(BigDec::from_i32(2), one_point_six).unwrap().to_string());
 }
 
 #[test]
