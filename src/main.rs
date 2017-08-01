@@ -34,6 +34,7 @@ fn main() {
 
 	let window = Window::new(WindowType::Toplevel);
 	window.set_title("dkalc");
+	window.set_wmclass("dkalc", "dkalc");
 	window.set_default_size(350, 100);
 
 	let gtk_box = Box::new(Orientation::Vertical, 3);
@@ -108,7 +109,7 @@ fn main() {
 			label.set_label(&result);
 		}
 	});
-	
+
 	gtk::main();
 
 }

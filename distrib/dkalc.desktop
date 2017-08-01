@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=dkalc
+GenericName=Calculator
+Comment=Compute with programming syntax and result auto-evaluation
+Exec=dkalc
+Terminal=false
+Icon=dkalc
+Categories=Utility;Calculator;GTK;
