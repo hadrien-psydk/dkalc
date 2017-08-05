@@ -12,6 +12,9 @@ mod funcs;
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 fn main() {
+	let args: Vec<String> = std::env::args().collect();
+	let debug_mode = args.len() == 2 && args[1] == "--debug";
+
 	//println!("{}", eval::eval_input("4+2-3-3"));
 	/*
 	println!("{}", big_dec::BigDec::div(
@@ -105,7 +108,7 @@ fn main() {
 
 	entry.connect_changed(move |arg| {
 		if let Some(str) = arg.get_chars(0, -1) {
-			let result = eval::eval_input(&str);
+			let result = eval::eval_input_debug(&str, debug_mode);
 			label.set_label(&result);
 		}
 	});
