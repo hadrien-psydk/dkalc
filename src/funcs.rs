@@ -67,3 +67,12 @@ fn bd_sqrt(arg: BigDec) -> Result<BigDec, big_dec::Error> {
 	}
 	Ok(r)
 }
+
+#[test]
+fn test_sqrt() {
+	let n = BigDec::from_i32(25);
+	let res = bd_sqrt(n);
+	assert!(res.is_ok());
+	assert_eq!(BigDec::from_i32(5), res.unwrap());
+}
+

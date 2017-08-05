@@ -111,6 +111,5 @@ fn main() {
 	});
 
 	gtk::main();
-
 }
 

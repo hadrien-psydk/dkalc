@@ -537,6 +537,12 @@ impl BigDec {
 	}
 }
 
+impl PartialEq for BigDec {
+    fn eq(&self, other: &BigDec) -> bool {
+        BigDec::compare(*self, *other) == 0
+    }
+}
+
 #[test]
 fn test_add() {
 	assert_eq!("3",  BigDec::add(BigDec::from_i32(1),  BigDec::from_i32(2)).unwrap().to_string());
