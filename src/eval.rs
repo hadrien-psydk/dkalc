@@ -141,7 +141,12 @@ impl Tree {
 			Token::Func(name) => match funcs::eval_func(name, val_left) {
 				Ok(val) => Ok(val),
 				Err(err) => Err(EvalError::Fn(err))
+			},
+			Token::Fact => match BigDec::fact(val_left) {
+				Ok(val) => Ok(val),
+				Err(err) => Err(EvalError::Bd(err))
 			}
+
 		};
 		nv_result
 	}
@@ -178,7 +183,7 @@ enum ParseResult {
 	Some(usize),
 }
 
-fn parse_factor_parenthesis(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
+fn parse_subfactor_parenthesis(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 	// Parenthesis expression
 	let inside = parse_expression(tg, arena);
 
@@ -199,7 +204,7 @@ fn parse_factor_parenthesis(tg: &mut TokenGetter, arena: &mut TreeArena) -> Pars
 	return inside;
 }
 
-fn parse_factor_function(tg: &mut TokenGetter, arena: &mut TreeArena, name: token::Name) -> ParseResult {
+fn parse_subfactor_function(tg: &mut TokenGetter, arena: &mut TreeArena, name: token::Name) -> ParseResult {
 	// Parenthesis expression
 	let inside_id_res = parse_expression(tg, arena);
 	let inside_id = match inside_id_res {
@@ -241,7 +246,7 @@ fn parse_factor_function(tg: &mut TokenGetter, arena: &mut TreeArena, name: toke
 // F -> '-'? number
 // F -> '(' X ')'
 // F -> 'func(' X ')'
-fn parse_factor(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
+fn parse_subfactor(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 	let op = match tg.next() {
 		Some(op) => op,
 		None => { return ParseResult::None; }
@@ -270,15 +275,42 @@ fn parse_factor(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 			return ParseResult::Some(node_id);
 		},
 		Token::ParOpen => {
-			return parse_factor_parenthesis(tg, arena);
+			return parse_subfactor_parenthesis(tg, arena);
 		},
 		Token::Func(name) => {
-			return parse_factor_function(tg, arena, name);
+			return parse_subfactor_function(tg, arena, name);
 		},
 		_ => {
 			return ParseResult::Fail(format!("unexpected {}", op.to_string()));
 		},
 	}
+}
+
+// F -> S '!'?
+fn parse_factor(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
+	let sf_id = match parse_subfactor(tg, arena) {
+		ParseResult::None => { return ParseResult::None; },
+		ParseResult::Fail(err_str) => { return ParseResult::Fail(err_str); }
+		ParseResult::Some(id) => id
+	};
+
+	// Is there a '!' ?
+	let op = match tg.peek() {
+		Some(op) => op,
+		None => { return ParseResult::Some(sf_id); }
+	};
+
+	match *op {
+		Token::Fact => {
+			tg.next();
+		},
+		_ => { return ParseResult::Some(sf_id); }
+	}
+
+	let (mut node, node_id) = arena.alloc_node(Token::Fact);
+	node.left_id = Some(sf_id);
+	node.right_id = None;
+	ParseResult::Some(node_id)
 }
 
 // { * F }*
@@ -393,6 +425,7 @@ fn make_tree(mut tokens: Vec<Token>) -> Result<Tree, String> {
 	Ok(tree)
 }
 
+#[allow(dead_code)]
 pub fn eval_input(input: &str) -> String {
 	eval_input_debug(input, false)
 }
@@ -439,6 +472,7 @@ fn test_eval() {
 	assert_eq!("24", eval_input("2*3*4"));
 	assert_eq!("2", eval_input("7%5"));
 	assert_eq!("-2", eval_input("-3+1"));
+	assert_eq!("720", eval_input("6!"));
 }
 
 #[test]

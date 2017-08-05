@@ -32,6 +32,7 @@ pub enum Token {
 	Div,
 	Mod,
 	Func(Name), // Ends with a ParClose
+	Fact
 }
 
 impl Token {
@@ -51,6 +52,7 @@ impl Token {
 				name_par.push_str("(");
 				name_par.into()
 			},
+			Token::Fact => "!".into()
 		}
 	}
 }
@@ -134,7 +136,7 @@ impl<'a> InputContext<'a> {
 		let ic = input.chars().peekable();
 		InputContext { input_chars: ic }
 	}
-	
+
 	fn next_token(&mut self) -> Result<Token, Error> {
 		let ret;
 		loop {
@@ -201,6 +203,10 @@ impl<'a> InputContext<'a> {
 			}
 			else if c == '%' {
 				ret = Ok(Token::Mod);
+				break;
+			}
+			else if c == '!' {
+				ret = Ok(Token::Fact);
 				break;
 			}
 			else if c == ' ' {

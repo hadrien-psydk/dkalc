@@ -119,25 +119,31 @@ impl BigDec {
 	#[allow(dead_code)]
 	pub fn from_i32(val: i32) -> BigDec {
 		let mut ret = BigDec::zero();
-		let mut index = FRAC_LEN;
 		let mut val_u = if val < 0 {
 			ret.neg = true;
 			-val as u32
 		}
 		else {
-			ret.neg = false;
 			val as u32
 		};
 
-		loop {
-			if val_u == 0 {
-				break;
-			}
-			let x = (val_u % 10) as u8;
-			val_u /= 10;
+		if val_u < 10 {
+			// Fast path
+			ret.digits[FRAC_LEN] = val_u as u8;
+		}
+		else {
+			// Slow path
+			let mut index = FRAC_LEN;
+			loop {
+				if val_u == 0 {
+					break;
+				}
+				let x = (val_u % 10) as u8;
+				val_u /= 10;
 
-			ret.digits[index] = x;
-			index += 1;
+				ret.digits[index] = x;
+				index += 1;
+			}
 		}
 		ret
 	}
@@ -457,6 +463,35 @@ impl BigDec {
 		}
 	}
 
+	pub fn fact(mut n: BigDec) -> Result<BigDec, Error> {
+		if n.is_zero() {
+			return Ok(BigDec::from_i32(1));
+		}
+		// Clear fractional part
+		for i in 0..FRAC_LEN {
+			n.digits[i] = 0;
+		}
+		// Clear sign
+		let sign = n.neg;
+		n.neg = false;
+		let one = BigDec::from_i32(1);
+		let mut val = n;
+		loop {
+			let n_minus_one = BigDec::sub_u(n, one);
+			if n_minus_one.is_zero() {
+				break;
+			}
+			let mul_res = BigDec::mul_u(val, n_minus_one);
+			if mul_res.is_err() {
+				return mul_res;
+			}
+			val = mul_res.unwrap();
+			n = n_minus_one;
+		}
+		val.neg = sign;
+		Ok(val)
+	}
+
 	// Parses a positive number
 	pub fn parse_chars(input_chars: &mut std::iter::Peekable<std::str::Chars>) -> Result<BigDec, Error> {
 		let c = {
@@ -629,6 +664,12 @@ fn test_div_mod() {
 	assert_eq!("4",  BigDec::div_mod(BigDec::from_i32(-100),  BigDec::from_i32(48)).unwrap().to_string());
 	assert_eq!("-4",  BigDec::div_mod(BigDec::from_i32(100),  BigDec::from_i32(-48)).unwrap().to_string());
 	assert_eq!("-4",  BigDec::div_mod(BigDec::from_i32(-100),  BigDec::from_i32(-48)).unwrap().to_string());
+}
+
+#[test]
+fn test_fact() {
+	assert_eq!("120",  BigDec::fact(BigDec::from_i32(5)).unwrap().to_string());
+	assert_eq!("-120",  BigDec::fact(BigDec::from_i32(-5)).unwrap().to_string());
 }
 
 #[test]
