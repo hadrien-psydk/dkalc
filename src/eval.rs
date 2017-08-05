@@ -243,9 +243,9 @@ fn parse_subfactor_function(tg: &mut TokenGetter, arena: &mut TreeArena, name: t
 	ParseResult::Some(node_id)
 }
 
-// F -> '-'? number
-// F -> '(' X ')'
-// F -> 'func(' X ')'
+// S -> '-'? number
+// S -> '(' X ')'
+// S -> 'func(' X ')'
 fn parse_subfactor(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 	let op = match tg.next() {
 		Some(op) => op,
