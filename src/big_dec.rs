@@ -42,6 +42,7 @@ pub enum Error {
 	ParseNothing,
 	ParseIntPartOverflow,
 	ParseFracPartOverflow,
+	ParseBadChar,
 
 	// operations
 	OpDivideByZero,
@@ -54,6 +55,7 @@ impl Error {
 			Error::ParseNothing => "".to_string(),
 			Error::ParseIntPartOverflow => "too many digits".to_string(),
 			Error::ParseFracPartOverflow => "too many decimals".to_string(),
+			Error::ParseBadChar => "bad character".to_string(),
 			Error::OpDivideByZero => "divide by zero".to_string(),
 			Error::OpOverflow => "overflow".to_string()
 		}
@@ -493,6 +495,8 @@ impl BigDec {
 	}
 
 	// Parses a positive number
+	// The digits can be separated with an underscore
+	// ex: 14_950.234_845
 	pub fn parse_chars(input_chars: &mut std::iter::Peekable<std::str::Chars>) -> Result<BigDec, Error> {
 		let c = {
 			let c_opt = input_chars.peek();
@@ -517,6 +521,7 @@ impl BigDec {
 
 		let mut shift_count = 1;
 		let mut dot_found = false;
+		let mut sep_found = false;
 		let mut frac_index = FRAC_LEN;
 		loop {
 			let c = {
@@ -535,6 +540,13 @@ impl BigDec {
 				}
 				dot_found = true;
 			}
+			else if c == '_' {
+				if sep_found {
+					// Double '_' found
+					return Err(Error::ParseBadChar);
+				}
+				sep_found = true;
+			}
 			else {
 				let digit32 = {
 					if !c.is_digit(10) {
@@ -542,6 +554,8 @@ impl BigDec {
 					}
 					c.to_digit(10).unwrap() as u8
 				};
+				// Reset separator status
+				sep_found = false;
 
 				if !dot_found {
 					if shift_count == INT_LEN {
@@ -673,7 +687,7 @@ fn test_fact() {
 }
 
 #[test]
-fn test_parse() {
+fn test_parse_very_big() {
 	let nv = BigDec::parse_str("1.02");
 	assert!(nv.is_ok());
 	assert_eq!("1.02", nv.unwrap().to_string());
@@ -697,4 +711,15 @@ fn test_parse() {
 		Ok(_) => false
 	};
 	assert!(is_int_part_overflow_err);
+}
+
+#[test]
+fn test_parse_underscore() {
+	let nv = BigDec::parse_str("1_000");
+	assert!(nv.is_ok());
+	assert_eq!("1000", nv.unwrap().to_string());
+
+	let nv2 = BigDec::parse_str("1_234_567");
+	assert!(nv2.is_ok());
+	assert_eq!("1234567", nv2.unwrap().to_string());
 }
