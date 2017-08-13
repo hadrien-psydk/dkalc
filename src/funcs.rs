@@ -25,7 +25,8 @@ pub fn eval_func(name: token::Name, arg: big_dec::BigDec) -> Result<BigDec, Erro
 	let func_disps = [
 		FuncDisp { name: "zero", bdf: bd_zero },
 		FuncDisp { name: "same", bdf: bd_same },
-		FuncDisp { name: "sqrt", bdf: bd_sqrt }
+		FuncDisp { name: "sqrt", bdf: bd_sqrt },
+		FuncDisp { name: "cos", bdf: bd_cos },
 	];
 	let name_str = name.to_string();
 	for fd in &func_disps {
@@ -76,3 +77,38 @@ fn test_sqrt() {
 	assert_eq!(BigDec::from_i32(5), res.unwrap());
 }
 
+fn bd_cos(arg: BigDec) -> Result<BigDec, big_dec::Error> {
+	let one = BigDec::from_i32(1);
+	let arg_square = try!(BigDec::mul(arg, arg));
+	let mut comp_result = one;
+	let mut neg = true;
+	let mut n = one;
+	let mut step = one;
+
+	let limit = 30;
+	for _ in 0..limit {
+		let up = try!(BigDec::mul(step, arg_square));
+		let twice_n = try!(BigDec::add(n, n));
+		let twice_n_minus_one = try!(BigDec::sub(twice_n, one));
+		let down = try!(BigDec::mul(twice_n, twice_n_minus_one));
+		step = try!(BigDec::div(up, down));
+
+		let prev_comp_result = comp_result;
+
+		if neg {
+			comp_result = try!(BigDec::sub(comp_result, step));
+		}
+		else {
+			comp_result = try!(BigDec::add(comp_result, step));
+		}
+		//println!("{} r: {}", i, comp_result);
+
+		if BigDec::compare(comp_result, prev_comp_result) == 0 {
+			break;
+		}
+
+		neg = !neg;
+		n = try!(BigDec::add(n, one));
+	}
+	Ok(comp_result)
+}
