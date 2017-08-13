@@ -11,9 +11,34 @@ mod funcs;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
-fn main() {
+struct AppArgs {
+	debug_mode: bool,
+	expression: String
+}
+
+fn parse_app_args() -> AppArgs {
 	let args: Vec<String> = std::env::args().collect();
-	let debug_mode = args.len() == 2 && args[1] == "--debug";
+	let app_args = {
+		if args.len() <= 1 {
+			AppArgs { debug_mode: false, expression: String::new() }
+		}
+		else if args[1] == "--debug" {
+			if args.len() <= 3 {
+				AppArgs { debug_mode: true, expression: args[2].clone() }
+			}
+			else {
+				AppArgs { debug_mode: true, expression: String::new() }
+			}
+		}
+		else {
+			AppArgs { debug_mode: false, expression: args[1].clone() }
+		}
+	};
+	app_args
+}
+
+fn main() {
+	let app_args = parse_app_args();
 
 	//println!("{}", eval::eval_input("4+2-3-3"));
 	/*
@@ -106,9 +131,14 @@ fn main() {
 		gtk::main_quit();
 	});
 
+	entry.set_text(&app_args.expression);
+	entry.set_position(-1);
+	let result = eval::eval_input_debug(&app_args.expression, app_args.debug_mode);
+	label.set_label(&result);
+
 	entry.connect_changed(move |arg| {
 		if let Some(str) = arg.get_chars(0, -1) {
-			let result = eval::eval_input_debug(&str, debug_mode);
+			let result = eval::eval_input_debug(&str, app_args.debug_mode);
 			label.set_label(&result);
 		}
 	});
