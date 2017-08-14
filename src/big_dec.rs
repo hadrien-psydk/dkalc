@@ -494,6 +494,35 @@ impl BigDec {
 		Ok(val)
 	}
 
+	// Converts a BigDec which internal representation uses a base 16
+	// to a regular BigDec which uses a base 10
+	fn hex_to_dec(&self) -> Result<BigDec, Error> {
+		// Get the number of hex digits
+		let mut limit = MAX_LEN;
+		for i in (FRAC_LEN..MAX_LEN).rev() {
+			if self.digits[i] != 0 {
+				break;
+			}
+			limit -= 1;
+		}
+		//println!("limit: {}", limit);
+
+		let mut comp_result = BigDec::zero();
+		let sixteen = BigDec::from_i32(16);
+		let mut power_of_16 = BigDec::from_i32(1);
+
+		for i in FRAC_LEN..limit {
+			let digit = self.digits[i] as i32;
+			let bd_digit = BigDec::from_i32(digit);
+			let mul = try!(BigDec::mul(bd_digit, power_of_16));
+			comp_result = try!(BigDec::add(comp_result, mul));
+			//println!("{}: {}", i - FRAC_LEN, comp_result);
+			power_of_16 = try!(BigDec::mul(power_of_16, sixteen));
+			//println!("power of 16: {}", power_of_16);
+		}
+		Ok(comp_result)
+	}
+
 	// Parses a positive number
 	// The digits can be separated with an underscore
 	// ex: 14_950.234_845
@@ -508,7 +537,7 @@ impl BigDec {
 		};
 
 		// Check that the character is a digit
-		let digit32 = {
+		let first_digit32 = {
 			if !c.is_digit(10) {
 				return Result::Err(Error::ParseNothing); // Not a number
 			}
@@ -517,11 +546,13 @@ impl BigDec {
 		input_chars.next();
 
 		let mut val = BigDec::zero();
-		val.digits[FRAC_LEN] = digit32;
+		val.digits[FRAC_LEN] = first_digit32;
 
 		let mut shift_count = 1;
 		let mut dot_found = false;
 		let mut sep_found = false;
+		let mut radix = 10;
+		let mut radix_found = false;
 		let mut frac_index = FRAC_LEN;
 		loop {
 			let c = {
@@ -533,7 +564,17 @@ impl BigDec {
 				*c
 			};
 
-			if c == '.' {
+			if c == 'x' {
+				if !radix_found && shift_count == 1 && first_digit32 == 0 {
+					// Hexadecimal
+					radix = 16;
+					radix_found = true;
+				}
+				else {
+				    return Err(Error::ParseBadChar);
+				}
+			}
+			else if c == '.' {
 				if dot_found {
 					// Already found, exit
 					break;
@@ -549,10 +590,10 @@ impl BigDec {
 			}
 			else {
 				let digit32 = {
-					if !c.is_digit(10) {
+					if !c.is_digit(radix) {
 						break;
 					}
-					c.to_digit(10).unwrap() as u8
+					c.to_digit(radix).unwrap() as u8
 				};
 				// Reset separator status
 				sep_found = false;
@@ -575,7 +616,14 @@ impl BigDec {
 			}
 			input_chars.next();
 		}
-		Result::Ok(val)
+		println!("parse ok");
+		if radix == 16 {
+			// Convert the collected values
+			val.hex_to_dec()
+		}
+		else {
+			Result::Ok(val)
+		}
 	}
 
 	// for testing
@@ -722,4 +770,11 @@ fn test_parse_underscore() {
 	let nv2 = BigDec::parse_str("1_234_567");
 	assert!(nv2.is_ok());
 	assert_eq!("1234567", nv2.unwrap().to_string());
+}
+
+#[test]
+fn test_parse_hex() {
+	let nv = BigDec::parse_str("0xffff");
+	assert!(nv.is_ok());
+	assert_eq!("65535", nv.unwrap().to_string());
 }
