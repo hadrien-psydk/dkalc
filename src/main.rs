@@ -16,29 +16,44 @@ struct AppArgs {
 	expression: String
 }
 
-fn parse_app_args() -> AppArgs {
-	let args: Vec<String> = std::env::args().collect();
-	let app_args = {
-		if args.len() <= 1 {
-			AppArgs { debug_mode: false, expression: String::new() }
-		}
-		else if args[1] == "--debug" {
-			if args.len() <= 3 {
-				AppArgs { debug_mode: true, expression: args[2].clone() }
-			}
-			else {
-				AppArgs { debug_mode: true, expression: String::new() }
-			}
+fn parse_app_args<T: AsRef<str>>(args: Vec<T>) -> AppArgs {
+	if args.len() <= 1 {
+		AppArgs { debug_mode: false, expression: String::new() }
+	}
+	else if args[1].as_ref() == "--debug" {
+		if args.len() > 2 {
+			AppArgs { debug_mode: true, expression: args[2].as_ref().to_string() }
 		}
 		else {
-			AppArgs { debug_mode: false, expression: args[1].clone() }
+			AppArgs { debug_mode: true, expression: String::new() }
 		}
-	};
-	app_args
+	}
+	else {
+		AppArgs { debug_mode: false, expression: args[1].as_ref().to_string() }
+	}
+}
+
+#[test]
+fn test_parse_app_args() {
+	let app_args0 = parse_app_args(vec!["dkalc", ""]);
+	assert_eq!(app_args0.debug_mode, false);
+	assert_eq!(app_args0.expression, "");
+
+	let app_args1 = parse_app_args(vec!["dkalc", "42"]);
+	assert_eq!(app_args1.debug_mode, false);
+	assert_eq!(app_args1.expression, "42");
+
+	let app_args2 = parse_app_args(vec!["dkalc", "--debug"]);
+	assert_eq!(app_args2.debug_mode, true);
+	assert_eq!(app_args2.expression, "");
+
+	let app_args3 = parse_app_args(vec!["dkalc", "--debug", "42"]);
+	assert_eq!(app_args3.debug_mode, true);
+	assert_eq!(app_args3.expression, "42");
 }
 
 fn main() {
-	let app_args = parse_app_args();
+	let app_args = parse_app_args(std::env::args().collect());
 
 	//println!("{}", eval::eval_input("4+2-3-3"));
 	/*
