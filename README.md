@@ -1,6 +1,6 @@
-# dkalc
+# dkalc ![dkalc logo](distrib/icon-48.png)
 
-dkalc is a Linux simple calculator with programming like syntax and auto-evaluation.
+dkalc is a simple calculator for Linux with programming like syntax and auto-evaluation.
 
 ## How to build
 
