@@ -237,7 +237,7 @@ fn parse_subfactor_function(tg: &mut TokenGetter, arena: &mut TreeArena, name: t
 	}
 
 	// Alloc a node to keep the function name and the subtree inside the parenthesis
-	let (mut node, node_id) = arena.alloc_node(Token::Func(name));
+	let (node, node_id) = arena.alloc_node(Token::Func(name));
 	node.left_id = Some(inside_id);
 	node.right_id = None;
 	ParseResult::Some(node_id)
@@ -307,7 +307,7 @@ fn parse_factor(tg: &mut TokenGetter, arena: &mut TreeArena) -> ParseResult {
 		_ => { return ParseResult::Some(sf_id); }
 	}
 
-	let (mut node, node_id) = arena.alloc_node(Token::Fact);
+	let (node, node_id) = arena.alloc_node(Token::Fact);
 	node.left_id = Some(sf_id);
 	node.right_id = None;
 	ParseResult::Some(node_id)
@@ -334,7 +334,7 @@ fn parse_term_right(tg: &mut TokenGetter, arena: &mut TreeArena, mut root_id: us
 			ParseResult::Fail(err) => return ParseResult::Fail(err),
 			ParseResult::Some(right_id) => right_id
 		};
-		let (mut node, node_id) = arena.alloc_node((*op).clone());
+		let (node, node_id) = arena.alloc_node((*op).clone());
 		node.left_id = Some(root_id);
 		node.right_id = Some(right_id);
 		root_id = node_id;
@@ -384,7 +384,7 @@ fn parse_expression_right(tg: &mut TokenGetter, arena: &mut TreeArena, mut root_
 			ParseResult::Some(right_id) => right_id
 		};
 
-		let (mut node, node_id) = arena.alloc_node((*op).clone());
+		let (node, node_id) = arena.alloc_node((*op).clone());
 		node.left_id = Some(root_id);
 		node.right_id = Some(right_id);
 		root_id = node_id;
