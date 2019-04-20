@@ -104,15 +104,16 @@ fn main() {
 	gtk_box.pack_start(&menu_bar, true, true, 0);
 
 	let label = Label::new(Some("0"));
-	label.set_name("result");
+	gtk::WidgetExt::set_name(&label, "result");
 	gtk_box.pack_start(&label, true, true, 0);
 
 	let entry = Entry::new();
 	gtk_box.pack_start(&entry, true, true, 0);
 
+
 	let css_provider = CssProvider::new();
 	let css = "#result { font-family: monospace; font-size: 15px; }";
-	if let Err(err) = css_provider.load_from_data(css) {
+	if let Err(err) = css_provider.load_from_data(css.as_bytes()) {
 		println!("css_provider.load_from_data failed: {}", err);
 		return;
 	}
