@@ -1,8 +1,14 @@
 [package]
 name = "dkalc"
-version = "0.4.1"
-authors = ["hadrien"]
+version = "0.5.1"
+authors = ["Hadrien Nilsson <hadrien@psydk.org>"]
 
 [dependencies.gtk]
-version = "0.4.0"
-features = ["v3_16"]
+version = "0.5.0"
+features = ["v3_20"]
+
+[dependencies.gio]
+version = "0.5.0"
+
+[dependencies.glib]
+version = "0.6.0"
