@@ -130,15 +130,22 @@ fn build_ui(app: &gtk::Application, app_args: &AppArgs) {
 	let gtk_box = gtk::Box::new(gtk::Orientation::Vertical, 3);
 	window.add(&gtk_box);
 
-	let label = gtk::Label::new(Some("0"));
-	gtk::WidgetExt::set_name(&label, "result");
-	gtk_box.pack_start(&label, true, true, 0);
+	// Result display
+	let label_state = gtk::Label::new(Some(""));
+	gtk::WidgetExt::set_name(&label_state, "state");
+	gtk_box.pack_start(&label_state, true, true, 0);
 
-	let entry = gtk::Entry::new();
-	gtk_box.pack_start(&entry, true, true, 0);
+	let label_result_dec = gtk::Label::new(Some("0"));
+	gtk::WidgetExt::set_name(&label_result_dec, "result");
+	gtk_box.pack_start(&label_result_dec, true, true, 0);
 
+	let label_result_hex = gtk::Label::new(Some("0x0"));
+	gtk::WidgetExt::set_name(&label_result_hex, "result");
+	gtk_box.pack_start(&label_result_hex, true, true, 0);
+
+	// CSS
 	let css_provider = gtk::CssProvider::new();
-	let css = "#result { font-family: monospace; font-size: 15px; }";
+	let css = "#state { color: #800; } #result { font-family: monospace; font-size: 15px; }";
 	if let Err(err) = css_provider.load_from_data(css.as_bytes()) {
 		println!("css_provider.load_from_data failed: {}", err);
 		return;
@@ -149,20 +156,23 @@ fn build_ui(app: &gtk::Application, app_args: &AppArgs) {
 		800 // gtk_sys::GTK_STYLE_PROVIDER_PRIORITY_USER
 		);
 
-	entry.set_text(&app_args.expression);
-	entry.set_position(-1);
-	let result = eval::eval_input_debug(&app_args.expression, app_args.debug_mode);
-	label.set_label(&result);
+	// Input box
+	let entry = gtk::Entry::new();
+	gtk_box.pack_start(&entry, true, true, 0);
 
 	entry.connect_changed({
 		let debug_mode = app_args.debug_mode;
 		move |arg| {
 			if let Some(str) = arg.get_chars(0, -1) {
-				let result = eval::eval_input_debug(&str, debug_mode);
-				label.set_label(&result);
+				let de = eval::eval_input_debug_detailed(&str, debug_mode);
+				label_state.set_label(&de.state_str);
+				label_result_dec.set_label(&de.result_dec);
+				label_result_hex.set_label(&de.result_hex);
 			}
 		}
 	});
+
+	entry.set_text(&app_args.expression);
 
 	window.show_all();
 
@@ -189,10 +199,11 @@ fn main() {
 	);*/
 
 	let app = gtk::Application::new("psydk.dkalc",
-		gio::ApplicationFlags::FLAGS_NONE)
+		gio::ApplicationFlags::HANDLES_COMMAND_LINE)
 			.expect("Application::new failed");
 	app.connect_startup(move |arg| build_ui(arg, &app_args));
 
 	app.connect_activate(|_| {}); // Make GTK happy
+	app.connect_command_line(|_, _| { 1 }); // Make GTK happy
 	app.run(&args().collect::<Vec<_>>());
 }

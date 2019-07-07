@@ -437,18 +437,6 @@ pub fn eval_input_debug(input: &str, debug: bool) -> String {
 		Err(err) => { return err.to_string(); }
 	};
 
-	/*
-	print!("{} tokens: ", tokens.len());
-	for t in &tokens {
-		print!("[{}] ", t.to_string());
-	}
-	println!("");
-	*/
-
-	/*
-	println!("tree:");
-	*/
-
 	match make_tree(tokens) {
 		Ok(tree) => {
 			if debug {
@@ -463,6 +451,47 @@ pub fn eval_input_debug(input: &str, debug: bool) -> String {
 			}
 		},
 		Err(err) => err.into()
+	}
+}
+
+pub struct DetailedEval {
+	pub state_str: String,
+	pub result_dec: String,
+	pub result_hex: String
+}
+
+pub fn eval_input_debug_detailed(input: &str, debug: bool) -> DetailedEval {
+	let mut ret = DetailedEval {
+		state_str: "".into(),
+		result_dec: "--".into(),
+		result_hex: "--".into()
+	};
+	let tokens_res = token::tokenize(input);
+	let tokens = match tokens_res {
+		Ok(tokens) => tokens,
+		Err(err) => { ret.state_str = err.to_string(); return ret; }
+	};
+
+	match make_tree(tokens) {
+		Ok(tree) => {
+			if debug {
+				println!("{}", tree.to_string());
+			}
+			match tree.eval() {
+				Ok(nv) => {
+					//println!("dbg: {:?}", nv);
+					ret.result_dec = nv.to_string();
+					ret.result_hex = nv.to_string_hex(8);
+					ret
+				},
+				Err(err) => {
+					ret.state_str = err.to_string(); ret
+				}
+			}
+		},
+		Err(err) => {
+			ret.state_str = err.into(); ret
+		}
 	}
 }
 

@@ -1,11 +1,13 @@
 use std;
 use std::char;
 
-const INT_LEN: usize = 20;  // number of digits used for the integer part
 const FRAC_LEN: usize = 20; // number of digits used for the fractional part
+const INT_LEN: usize = 20;  // number of digits used for the integer part
 
 const MAX_LEN: usize = FRAC_LEN + INT_LEN;
 const MAX_LEN_MUL: usize = MAX_LEN*2+1; // Max len for multiplication result
+
+const INT_START: usize = FRAC_LEN;
 
 // for debugging
 #[allow(dead_code)]
@@ -73,6 +75,18 @@ struct DivRet {
 	remainder: BigDec,
 }
 
+impl DivRet {
+	#[allow(dead_code)] // for unit testing
+	pub fn to_string(&self) -> String {
+		let q = self.quotient.to_string();
+		let r = self.remainder.to_string();
+		let mut ret = q;
+		ret.push_str("~");
+		ret.push_str(&r);
+		ret
+	}
+}
+
 impl std::fmt::Display for BigDec {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.to_string())
@@ -107,6 +121,12 @@ impl Clone for BigDec {
 	fn clone(&self) -> BigDec {
 		*self
 	}
+}
+
+fn char_from_digit(digit: u8) -> char {
+	let x = digit as u32;
+	let x2 = if x < 10 { 48 + x } else { 65 + x - 10 };
+	char::from_u32(x2).unwrap()
 }
 
 impl BigDec {
@@ -163,21 +183,48 @@ impl BigDec {
 			}
 
 			for i in (FRAC_LEN..stop_at).rev() {
-				let x = self.digits[i] as u32;
-				let c = char::from_u32(48 + x).unwrap();
+				let c = char_from_digit(self.digits[i]);
 				ret.push(c);
 			}
 
 			if start_at < FRAC_LEN {
 				ret.push('.');
 				for i in (start_at..FRAC_LEN).rev() {
-					let x = self.digits[i] as u32;
-					let c = char::from_u32(48 + x).unwrap();
+					let c = char_from_digit(self.digits[i]);
 					ret.push(c);
 				}
 			}
 		}
 		ret
+	}
+
+	// TODO: handle negative numbers and digit_count
+	pub fn to_string_hex(&self, _digit_count: i32) -> String {
+		let hex = BigDec::dec_to_hex(&self);
+		let mut s = hex.to_string();
+		s.insert_str(0, "0x");
+		s
+	}
+
+	// Converts a BigDec which works with decimal digits into
+	// a BigDec with hexadecimal digits. To be used for display
+	// only.
+	fn dec_to_hex(&self) -> BigDec {
+		let sixteen = BigDec::from_i32(16);
+		let mut x = self.clone();
+
+		let mut res = BigDec::from_i32(0);
+		for i in INT_START..MAX_LEN {
+			let div_ret = BigDec::div_u(x, sixteen, false);
+			let dl = div_ret.remainder.digits[INT_START];
+			let dh = div_ret.remainder.digits[INT_START + 1];
+			res.digits[i] = dh * 10 + dl;
+			x = div_ret.quotient;
+			if x.is_zero() {
+				break;
+			}
+		}
+		res
 	}
 
 	pub fn max_len() -> usize {
@@ -368,10 +415,11 @@ impl BigDec {
 	}
 
 	fn div_u(nv0: BigDec, nv1: BigDec, with_frac: bool) -> DivRet {
-		//println!("u_div: {:?} / {:?}", nv0, nv1);
+		//println!("u_div:  in: {:?} / {:?} {:?}", nv0, nv1, with_frac);
 		let mut tmp = BigDec::zero();
 		let mut src_digit_index = Some(MAX_LEN - 1);
 		let mut index = 0;
+		let target_index = if with_frac { 0 } else { INT_START };
 		let stop_at = if with_frac { MAX_LEN+FRAC_LEN } else { MAX_LEN };
 
 		let mut result = BigDec::zero();
@@ -403,7 +451,7 @@ impl BigDec {
 				counter += 1;
 			}
 			result.shift_right();
-			result.digits[0] = counter;
+			result.digits[target_index] = counter;
 
 			index += 1;
 			if index == stop_at {
@@ -417,6 +465,7 @@ impl BigDec {
 		if with_frac {
 			tmp.shift_right();
 		}
+		//println!("u_div: out: {:?} ~ {:?}", result, tmp);
 		DivRet { quotient: result, remainder: tmp }
 	}
 
@@ -616,7 +665,7 @@ impl BigDec {
 			}
 			input_chars.next();
 		}
-		println!("parse ok");
+		//println!("parse ok");
 		if radix == 16 {
 			// Convert the collected values
 			val.hex_to_dec()
@@ -706,6 +755,11 @@ fn test_mul_overflow() {
 		_ => false
 	};
 	assert!(expected_err);
+}
+
+#[test]
+fn test_div_u_no_frac() {
+	assert_eq!("1~0",  BigDec::div_u(BigDec::from_i32(16),  BigDec::from_i32(16), false).to_string());
 }
 
 #[test]
