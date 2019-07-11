@@ -93,12 +93,17 @@ impl std::fmt::Display for BigDec {
     }
 }
 
+fn char_from_digit(digit: u8) -> char {
+	let x = digit as u32;
+	let x2 = if x < 10 { 48 + x } else { 65 + x - 10 };
+	char::from_u32(x2).unwrap()
+}
+
 impl std::fmt::Debug for BigDec {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let mut ds = String::with_capacity(MAX_LEN+3);
         for i in 0..FRAC_LEN {
-			let x = self.digits[i] as u32;
-			let c = char::from_u32(48 + x).unwrap();
+			let c = char_from_digit(self.digits[i]);
 			ds.push(c);
 			if i < (FRAC_LEN - 1) {
 				ds.push(',');
@@ -106,8 +111,7 @@ impl std::fmt::Debug for BigDec {
         }
         ds.push_str(" . ");
         for i in FRAC_LEN..MAX_LEN {
-			let x = self.digits[i] as u32;
-			let c = char::from_u32(48 + x).unwrap();
+			let c = char_from_digit(self.digits[i]);
 			ds.push(c);
 			if i < (MAX_LEN - 1) {
 				ds.push(',');
@@ -121,12 +125,6 @@ impl Clone for BigDec {
 	fn clone(&self) -> BigDec {
 		*self
 	}
-}
-
-fn char_from_digit(digit: u8) -> char {
-	let x = digit as u32;
-	let x2 = if x < 10 { 48 + x } else { 65 + x - 10 };
-	char::from_u32(x2).unwrap()
 }
 
 impl BigDec {
@@ -198,10 +196,42 @@ impl BigDec {
 		ret
 	}
 
-	// TODO: handle negative numbers and digit_count
+	fn find_first_non_f(&self) -> usize {
+		let mut stop_at = self.digits.len();
+		while stop_at > INT_START + 1 {
+			if self.digits[stop_at-1] != 0x0f {
+				break;
+			}
+			stop_at -= 1;
+		}
+		stop_at
+	}
+
+	// Converts the BigDec to an hexadecimal string. If it is
+	// negative, displays a limited number of 'F' leading bits.
 	pub fn to_string_hex(&self, _digit_count: i32) -> String {
 		let hex = BigDec::dec_to_hex(&self);
-		let mut s = hex.to_string();
+
+		// Handle negative display
+		// + 1 because we want at least one f
+		let min_len = (hex.find_first_non_f() - INT_START) + 1;
+		let limit = if min_len < 4 {
+			4
+		}
+		else if min_len < 8 {
+			8
+		}
+		else if min_len < 16 {
+			16
+		}
+		else {
+			min_len
+		};
+		let mut trunc = hex.clone();
+		for i in limit..INT_LEN {
+			trunc.digits[INT_START + i] = 0;
+		}
+		let mut s = trunc.to_string();
 		s.insert_str(0, "0x");
 		s
 	}
@@ -212,6 +242,7 @@ impl BigDec {
 	fn dec_to_hex(&self) -> BigDec {
 		let sixteen = BigDec::from_i32(16);
 		let mut x = self.clone();
+		let neg = x.neg;
 
 		let mut res = BigDec::from_i32(0);
 		for i in INT_START..MAX_LEN {
@@ -222,6 +253,23 @@ impl BigDec {
 			x = div_ret.quotient;
 			if x.is_zero() {
 				break;
+			}
+		}
+		// Make it negative if needed
+		if neg {
+			let mut carry = 1;
+			for i in INT_START..MAX_LEN {
+				let mut d = res.digits[i];
+				d = (!d) & 0x0f;
+				d += carry;
+				if d > 15 {
+					carry = 1;
+					d = 0;
+				}
+				else {
+					carry = 0;
+				}
+				res.digits[i] = d;
 			}
 		}
 		res
