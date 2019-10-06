@@ -671,6 +671,16 @@ impl BigDec {
 				    return Err(Error::ParseBadChar);
 				}
 			}
+			else if c == 'b' {
+				if !radix_found && shift_count == 1 && first_digit32 == 0 {
+					// Binary
+					radix = 2;
+					radix_found = true;
+				}
+				else {
+				    return Err(Error::ParseBadChar);
+				}
+			}
 			else if c == '.' {
 				if dot_found {
 					// Already found, exit
@@ -686,29 +696,46 @@ impl BigDec {
 				sep_found = true;
 			}
 			else {
-				let digit32 = {
-					if !c.is_digit(radix) {
-						break;
-					}
-					c.to_digit(radix).unwrap() as u8
-				};
-				// Reset separator status
-				sep_found = false;
+				if radix == 10 || radix == 16 {
+					let digit32 = {
+						if !c.is_digit(radix) {
+							break;
+						}
+						c.to_digit(radix).unwrap() as u8
+					};
+					// Reset separator status
+					sep_found = false;
 
-				if !dot_found {
-					if shift_count == INT_LEN {
-						return Err(Error::ParseIntPartOverflow);
+					if !dot_found {
+						if shift_count == INT_LEN {
+							return Err(Error::ParseIntPartOverflow);
+						}
+						val.shift_right();
+						val.digits[FRAC_LEN] = digit32;
+						shift_count += 1;
 					}
-					val.shift_right();
-					val.digits[FRAC_LEN] = digit32;
-					shift_count += 1;
+					else {
+						if frac_index == 0 {
+							return Err(Error::ParseFracPartOverflow);
+						}
+						frac_index -= 1;
+						val.digits[frac_index] = digit32;
+					}
 				}
-				else {
-					if frac_index == 0 {
-						return Err(Error::ParseFracPartOverflow);
-					}
-					frac_index -= 1;
-					val.digits[frac_index] = digit32;
+				else if radix == 2 {
+					let digit32 = {
+						if c == '0' { 0 } else if c == '1' { 1 } else { break; }
+					};
+					// Reset separator status
+					sep_found = false;
+					val = match BigDec::mul_u(val, BigDec::from_i32(2)) {
+						Ok(nv) => nv,
+						Err(err) => { return Err(err); }
+					};
+					val = match BigDec::add_u(val, BigDec::from_i32(digit32)) {
+						Ok(nv) => nv,
+						Err(err) => { return Err(err); }
+					};
 				}
 			}
 			input_chars.next();
@@ -879,4 +906,19 @@ fn test_parse_hex() {
 	let nv = BigDec::parse_str("0xffff");
 	assert!(nv.is_ok());
 	assert_eq!("65535", nv.unwrap().to_string());
+}
+
+#[test]
+fn test_parse_bin() {
+	let mut nv = BigDec::parse_str("0b0001");
+	assert!(nv.is_ok());
+	assert_eq!("1", nv.unwrap().to_string());
+
+	nv = BigDec::parse_str("0b1001");
+	assert!(nv.is_ok());
+	assert_eq!("9", nv.unwrap().to_string());
+
+	nv = BigDec::parse_str("0b11110000");
+	assert!(nv.is_ok());
+	assert_eq!("240", nv.unwrap().to_string());
 }
