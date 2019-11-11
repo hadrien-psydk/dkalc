@@ -591,6 +591,17 @@ impl BigDec {
 		Ok(val)
 	}
 
+	pub fn and(left: BigDec, right: BigDec) -> Result<BigDec, Error> {
+		let left_hex = left.dec_to_hex();
+		let right_hex = right.dec_to_hex();
+		let mut res = BigDec::zero();
+
+		for i in INT_START..MAX_LEN {
+			res.digits[i] = left_hex.digits[i] & right_hex.digits[i];
+		}
+		Ok(res)
+	}
+
 	// Converts a BigDec which internal representation uses a base 16
 	// to a regular BigDec which uses a base 10
 	fn hex_to_dec(&self) -> Result<BigDec, Error> {

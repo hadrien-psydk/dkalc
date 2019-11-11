@@ -32,7 +32,8 @@ pub enum Token {
 	Div,
 	Mod,
 	Func(Name), // Ends with a ParClose
-	Fact
+	Fact,
+	And
 }
 
 impl Token {
@@ -52,7 +53,8 @@ impl Token {
 				name_par.push_str("(");
 				name_par.into()
 			},
-			Token::Fact => "!".into()
+			Token::Fact => "!".into(),
+			Token::And => "&".into()
 		}
 	}
 }
@@ -207,6 +209,10 @@ impl<'a> InputContext<'a> {
 			}
 			else if c == '!' {
 				ret = Ok(Token::Fact);
+				break;
+			}
+			else if c == '&' {
+				ret = Ok(Token::And);
 				break;
 			}
 			else if c == ' ' {

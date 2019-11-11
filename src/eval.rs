@@ -145,8 +145,11 @@ impl Tree {
 			Token::Fact => match BigDec::fact(val_left) {
 				Ok(val) => Ok(val),
 				Err(err) => Err(EvalError::Bd(err))
+			},
+			Token::And => match BigDec::and(val_left, val_right) {
+				Ok(val) => Ok(val),
+				Err(err) => Err(EvalError::Bd(err))
 			}
-
 		};
 		nv_result
 	}
