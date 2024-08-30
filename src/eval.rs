@@ -434,27 +434,7 @@ pub fn eval_input(input: &str) -> String {
 }
 
 pub fn eval_input_debug(input: &str, debug: bool) -> String {
-	let tokens_res = token::tokenize(input);
-	let tokens = match tokens_res {
-		Ok(tokens) => tokens,
-		Err(err) => { return err.to_string(); }
-	};
-
-	match make_tree(tokens) {
-		Ok(tree) => {
-			if debug {
-				println!("{}", tree.to_string());
-			}
-			match tree.eval() {
-				Ok(nv) => {
-					//println!("dbg: {:?}", nv);
-					nv.to_string()
-				},
-				Err(err) => err.to_string()
-			}
-		},
-		Err(err) => err.into()
-	}
+	return eval_input_debug_detailed(input, debug).result_dec;
 }
 
 pub struct DetailedEval {
