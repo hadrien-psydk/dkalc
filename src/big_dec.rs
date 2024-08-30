@@ -316,7 +316,7 @@ impl BigDec {
 	// add without looking at the negative state of the inputs
 	fn add_u(nv0: BigDec, nv1: BigDec) -> Result<BigDec, Error> {
 		let mut nv1_digits = nv1.digits;
-		try!(BigDec::accumulate_u(&nv0.digits, &mut nv1_digits));
+		BigDec::accumulate_u(&nv0.digits, &mut nv1_digits)?;
 		Ok(BigDec { neg: false, digits: nv1_digits })
 	}
 
@@ -418,7 +418,7 @@ impl BigDec {
 		let mut result = [0u8;MAX_LEN_MUL];
 		for i in 0..MAX_LEN {
 			let line = BigDec::mul_u_digit(&nv0, nv1.digits[i], i);
-			try!(BigDec::accumulate_u(&line, &mut result)); // Cannot overflow actually
+			BigDec::accumulate_u(&line, &mut result)?; // Cannot overflow actually
 		}
 		let mut ret = BigDec::zero();
 		// Check overflow
@@ -622,10 +622,10 @@ impl BigDec {
 		for i in FRAC_LEN..limit {
 			let digit = self.digits[i] as i32;
 			let bd_digit = BigDec::from_i32(digit);
-			let mul = try!(BigDec::mul(bd_digit, power_of_16));
-			comp_result = try!(BigDec::add(comp_result, mul));
+			let mul = BigDec::mul(bd_digit, power_of_16)?;
+			comp_result = BigDec::add(comp_result, mul)?;
 			//println!("{}: {}", i - FRAC_LEN, comp_result);
-			power_of_16 = try!(BigDec::mul(power_of_16, sixteen));
+			power_of_16 = BigDec::mul(power_of_16, sixteen)?;
 			//println!("power of 16: {}", power_of_16);
 		}
 		Ok(comp_result)

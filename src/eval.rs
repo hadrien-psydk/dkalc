@@ -100,14 +100,14 @@ impl Tree {
 		let node = self.get_node(node_id);
 
 		let val_left = if let Some(left_id) = node.left_id {
-			try!(self.eval_node(left_id))
+			(self.eval_node(left_id))?
 		}
 		else {
 			BigDec::zero()
 		};
 
 		let val_right = if let Some(right_id) = node.right_id {
-			try!(self.eval_node(right_id))
+			(self.eval_node(right_id))?
 		}
 		else {
 			BigDec::zero()

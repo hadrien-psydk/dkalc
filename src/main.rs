@@ -4,7 +4,7 @@ extern crate gio;
 use gtk::prelude::*;
 use gio::prelude::*;
 
-use gio::MenuExt;
+//use gio::MenuExt;
 use gio::SimpleAction;
 //use gio::ActionMapExt;
 
@@ -66,6 +66,7 @@ fn test_parse_app_args() {
 	assert_eq!(app_args3.expression, "42");
 }
 
+#[allow(dead_code)]
 struct Header {
 	pub header_bar: gtk::HeaderBar,
 	pub hamburger_button: gtk::MenuButton
@@ -74,20 +75,21 @@ struct Header {
 impl Header {
 	fn new() -> Header {
 		let header_bar = gtk::HeaderBar::new();
-		header_bar.set_title("Dkalc");
+		header_bar.set_title(Some("Dkalc"));
 		header_bar.set_show_close_button(true);
 
 		let hamburger_button = gtk::MenuButton::new();
-		let hamburger_image = gtk::Image::new_from_icon_name("open-menu-symbolic", gtk::IconSize::Button.into());
-		hamburger_button.set_image(&hamburger_image);
+		let hamburger_image = gtk::Image::new_from_icon_name(Some("open-menu-symbolic"),
+			gtk::IconSize::Button.into());
+		hamburger_button.set_image(Some(&hamburger_image));
 		header_bar.pack_end(&hamburger_button);
 
 		let menu = gio::Menu::new();
 		//menu.append("Preferences", "win.preferences");
-	  	menu.append("About", "win.about");
+	  	menu.append(Some("About"), Some("win.about"));
 
-		let popover = gtk::Popover::new_from_model(&hamburger_button, &menu);
-		hamburger_button.set_popover(&popover);
+		let popover = gtk::Popover::new_from_model(Some(&hamburger_button), &menu);
+		hamburger_button.set_popover(Some(&popover));
 
 		Header { header_bar, hamburger_button }
 	}
@@ -113,7 +115,7 @@ fn show_about(window: &ApplicationWindow) {
 	ad.set_version(Some(VERSION));
 	ad.set_license_type(gtk::License::Gpl20);
 	ad.set_transient_for(Some(window));
-	ad.set_logo_icon_name("dkalc");
+	ad.set_logo_icon_name(Some("dkalc"));
 	ad.run();
 	ad.destroy();
 }
@@ -122,7 +124,7 @@ fn build_ui(app: &gtk::Application, app_args: &AppArgs) {
 	let window = ApplicationWindow::new(app);
 
 	let header = Header::new();
-	window.set_titlebar(&header.header_bar);
+	window.set_titlebar(Some(&header.header_bar));
 	window.set_wmclass("dkalc", "Dkalc");
 	window.set_default_size(350, 100);
 
@@ -132,15 +134,15 @@ fn build_ui(app: &gtk::Application, app_args: &AppArgs) {
 
 	// Result display
 	let label_state = gtk::Label::new(Some(""));
-	gtk::WidgetExt::set_name(&label_state, "state");
+	gtk::WidgetExt::set_widget_name(&label_state, "state");
 	gtk_box.pack_start(&label_state, true, true, 0);
 
 	let label_result_dec = gtk::Label::new(Some("0"));
-	gtk::WidgetExt::set_name(&label_result_dec, "result");
+	gtk::WidgetExt::set_widget_name(&label_result_dec, "result");
 	gtk_box.pack_start(&label_result_dec, true, true, 0);
 
 	let label_result_hex = gtk::Label::new(Some("0x0"));
-	gtk::WidgetExt::set_name(&label_result_hex, "result");
+	gtk::WidgetExt::set_widget_name(&label_result_hex, "result");
 	gtk_box.pack_start(&label_result_hex, true, true, 0);
 
 	// CSS
@@ -197,7 +199,7 @@ fn main() {
 		big_dec::BigDec::from_i32(48)
 		).to_string()
 	);*/
-
+	/*
 	let app = gtk::Application::new("psydk.dkalc",
 		gio::ApplicationFlags::HANDLES_COMMAND_LINE)
 			.expect("Application::new failed");
@@ -206,4 +208,15 @@ fn main() {
 	app.connect_activate(|_| {}); // Make GTK happy
 	app.connect_command_line(|_, _| { 1 }); // Make GTK happy
 	app.run(&args().collect::<Vec<_>>());
+	*/
+
+	let app = gtk::Application::new(Some("psydk.dkalc"),
+		gio::ApplicationFlags::HANDLES_COMMAND_LINE)
+			.expect("Application::new failed");
+	app.connect_startup(move |arg| build_ui(arg, &app_args));
+
+	app.connect_activate(|_| {}); // Make GTK happy
+	app.connect_command_line(|_, _| { 1 }); // Make GTK happy
+	app.run(&args().collect::<Vec<_>>());
+
 }

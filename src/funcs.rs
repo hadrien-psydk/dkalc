@@ -56,9 +56,9 @@ fn bd_sqrt(arg: BigDec) -> Result<BigDec, big_dec::Error> {
 
 	let limit = big_dec::BigDec::max_len() * 2;
 	for _ in 0..limit {
-		let arg_div_r = try!(BigDec::div(arg, r));
-		let r_add_adr = try!(BigDec::add(r, arg_div_r));
-		let r_aadr_div2 = try!(BigDec::div(r_add_adr, two));
+		let arg_div_r = BigDec::div(arg, r)?;
+		let r_add_adr = BigDec::add(r, arg_div_r)?;
+		let r_aadr_div2 = BigDec::div(r_add_adr, two)?;
 		if BigDec::compare(r, r_aadr_div2) == 0 {
 			break;
 		}
@@ -79,7 +79,7 @@ fn test_sqrt() {
 
 fn bd_cos(arg: BigDec) -> Result<BigDec, big_dec::Error> {
 	let one = BigDec::from_i32(1);
-	let arg_square = try!(BigDec::mul(arg, arg));
+	let arg_square = BigDec::mul(arg, arg)?;
 	let mut comp_result = one;
 	let mut neg = true;
 	let mut n = one;
@@ -87,19 +87,19 @@ fn bd_cos(arg: BigDec) -> Result<BigDec, big_dec::Error> {
 
 	let limit = 30;
 	for _ in 0..limit {
-		let up = try!(BigDec::mul(step, arg_square));
-		let twice_n = try!(BigDec::add(n, n));
-		let twice_n_minus_one = try!(BigDec::sub(twice_n, one));
-		let down = try!(BigDec::mul(twice_n, twice_n_minus_one));
-		step = try!(BigDec::div(up, down));
+		let up = BigDec::mul(step, arg_square)?;
+		let twice_n = BigDec::add(n, n)?;
+		let twice_n_minus_one = BigDec::sub(twice_n, one)?;
+		let down = BigDec::mul(twice_n, twice_n_minus_one)?;
+		step = BigDec::div(up, down)?;
 
 		let prev_comp_result = comp_result;
 
 		if neg {
-			comp_result = try!(BigDec::sub(comp_result, step));
+			comp_result = BigDec::sub(comp_result, step)?;
 		}
 		else {
-			comp_result = try!(BigDec::add(comp_result, step));
+			comp_result = BigDec::add(comp_result, step)?;
 		}
 		//println!("{} r: {}", i, comp_result);
 
@@ -108,7 +108,7 @@ fn bd_cos(arg: BigDec) -> Result<BigDec, big_dec::Error> {
 		}
 
 		neg = !neg;
-		n = try!(BigDec::add(n, one));
+		n = BigDec::add(n, one)?;
 	}
 	Ok(comp_result)
 }
