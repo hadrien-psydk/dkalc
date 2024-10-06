@@ -8,6 +8,7 @@ use gio::prelude::*;
 use gio::SimpleAction;
 //use gio::ActionMapExt;
 
+use gtk::StateFlags;
 use gtk::{ApplicationWindow};
 
 /*
@@ -120,6 +121,13 @@ fn show_about(window: &ApplicationWindow) {
 	ad.destroy();
 }
 
+fn is_dark_theme(window: &gtk::ApplicationWindow) -> bool {
+	let sc = window.get_style_context();
+	let col = sc.get_background_color(StateFlags::NORMAL);
+	let lum = col.red * 0.299 + col.green * 0.587 + col.blue * 0.114;
+	lum < 0.75
+}
+
 fn build_ui(app: &gtk::Application, app_args: &AppArgs) {
 	let window = ApplicationWindow::new(app);
 
@@ -146,8 +154,12 @@ fn build_ui(app: &gtk::Application, app_args: &AppArgs) {
 	gtk_box.pack_start(&label_result_hex, true, true, 0);
 
 	// CSS
+	let dark_theme = is_dark_theme(&window);
 	let css_provider = gtk::CssProvider::new();
-	let css = "#state { color: #800; } #result { font-family: monospace; font-size: 15px; }";
+	let state_col = if dark_theme { "#f55" } else { "#800" };
+	let mut css: String = "#state { color: ".to_owned();
+	css.push_str(&state_col);
+	css.push_str("; } #result { font-family: monospace; font-size: 20px; }");
 	if let Err(err) = css_provider.load_from_data(css.as_bytes()) {
 		println!("css_provider.load_from_data failed: {}", err);
 		return;

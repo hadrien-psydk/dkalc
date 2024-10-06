@@ -76,7 +76,7 @@ dependencies = [
 
 [[package]]
 name = "dkalc"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "gio",
  "glib 0.8.2",
